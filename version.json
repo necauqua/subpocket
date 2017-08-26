@@ -1,10 +1,13 @@
 {
   "homepage": "https://github.com/necauqua/subpocket/releases",
   "promos": {
+    "1.12.1-latest": "1.0.1",
+    "1.12.1-recommended": "1.0.1",
     "1.12-latest": "1.0.0",
     "1.12-recommended": "1.0.0"
   },
   "1.12": {
+    "1.0.1": "Update for 1.12.1",
     "1.0.0": "The first release."
   }
 }
