@@ -1,0 +1,71 @@
+
+subpocket.name.paper=§oСтранная обугленная бумажка
+
+
+subpocket.tooltip.code.1=§l§k%s§r§7§l%s%s%s
+subpocket.tooltip.code.2=§l%s§k%s§r§7§l%s%s
+subpocket.tooltip.code.3=§l%s%s§k%s§r§7§l%s
+subpocket.tooltip.code.4=§l%s%s%s§k%s
+
+subpocket.tooltip.paper.code=..§lКОД§r§7 таков: %s
+subpocket.tooltip.paper.magic=...цифры кода поплыли и магическим образом образовали другой код!
+
+subpocket.tooltip.clock=Жив более %s надвселенских часов.
+subpocket.tooltip.clock.one=Жив более одного надвселенского часа.
+
+subpocket.tooltip.count=§7§o%s штук:§r
+
+
+subpocket.popup.blocked_ender_chest=Эндер-привязка вашей души растворилась привязкой подпространственного кармана
+
+
+subpocket.command.usage=/subpocket <субкомманда> [аргументы...]
+subpocket.command.no_subcommand=Субкомманда '%s' не существует!
+subpocket.command.list=Список субкомманд: %s
+
+subpocket.command.help.usage=/subpocket help [субкомманда]
+subpocket.command.help.desc=Показывает список субкомманд и их короткие описания.
+
+subpocket.command.add.usage=/subpocket add <игрок> <предмет> ['at' <x> <y>] [кол-во] [метадата] [nbt тэг]
+subpocket.command.add.desc=Добавляет указанный предмет в карман игрока(в не зависимости от доступности кармана игроку).
+subpocket.command.add.success=Добавлено %sx%s в карман игрока %s.
+
+subpocket.command.remove.usage=/subpocket remove <игрок> <предмет> [кол-во|'all'] [метадата] [nbt тэг]
+subpocket.command.remove.desc=Удаляет 'кол-во' предметов которые совпадают с данным из кармана игрока.
+subpocket.command.remove.success=Удалено %s предметов из кармана игрока %s.
+
+subpocket.command.clear.usage=/subpocket clear [игрок]
+subpocket.command.clear.desc=Полностью очищает карман игрока.
+subpocket.command.clear.success=Карман игрока %s очищен.
+
+subpocket.command.move.usage=/subpocket move <игрок> <предмет> [~]<x> [~]<y> [метадата] [nbt тэг]
+subpocket.command.move.desc=Перемещает стеки подходящие совпадающие с данным.
+subpocket.command.move.success=Перемещён стек %s в кармане игрока %s.
+subpocket.command.move.failure=У игрока %s не было стеков, совпадающих с %s.
+
+subpocket.command.unlock.usage=/subpocket unlock <игрок> [этап]
+subpocket.command.unlock.desc=Разблокирует данный этап(или все из них) получения кармана игроком. Этапы таковы: 0 - время, 1 - иссушитель, 2 - алмаз и 3 - дракон.
+subpocket.command.unlock.success=Разблокирован этап %s игрока %s.
+subpocket.command.unlock.already=Игрок %2$s уже разблокировал этап %1$s.
+
+subpocket.command.lock.usage=/subpocket lock <игрок> [этап]
+subpocket.command.lock.desc=Блокирует данный этап(или все из них) получения кармана игроком. Этапы таковы: 0 - время, 1 - иссушитель, 2 - алмаз и 3 - дракон.
+subpocket.command.lock.success=Заблокирован этап %s игрока %s.
+subpocket.command.lock.already=Игрок %2$s ещё не разблокировал этап %1$s.
+
+subpocket.command.get.usage=/subpocket get <'stage'|'code'> [игрок]
+subpocket.command.get.desc=Выдает различную информацию о игроке, касающуюся кармана.
+subpocket.command.get.stage=Этап %s игрока равен %s
+subpocket.command.get.code=Код игрока %s равен %s
+
+subpocket.command.show.usage=/subpocket show
+subpocket.command.show.desc=Открывает ваш карман БЕЗ КОДА! Ну тип в креативе ты можешь использовать код в любое время, но ещё есть эта комманда.
+
+subpocket.config.block_ender_chests=Зашлакоблокировать эндер сундуки
+subpocket.config.block_ender_chests.tooltip=Блокировать использование эндер сундуков когда карман активен
+
+subpocket.config.hours_to_live=Прожитые часы
+subpocket.config.hours_to_live.tooltip=Как много реальных часов игрок должем быть живым чтобы начать квест для получения кармана
+
+subpocket.config.need_death_by_dragon=Нужна смерть от дракона Энда
+subpocket.config.need_death_by_dragon.tooltip=Если false то будет использован механизм для хардкор-миров - для получения кармана нужно получить урон от дракона, равный половине жизни игрока

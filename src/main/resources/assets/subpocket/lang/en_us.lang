@@ -1,0 +1,71 @@
+
+subpocket.name.paper=§oStrange piece of charred paper
+
+
+subpocket.tooltip.code.1=§l§k%s§r§7§l%s%s%s
+subpocket.tooltip.code.2=§l%s§k%s§r§7§l%s%s
+subpocket.tooltip.code.3=§l%s%s§k%s§r§7§l%s
+subpocket.tooltip.code.4=§l%s%s%s§k%s
+
+subpocket.tooltip.paper.code=..the §lCODE§r§7 is: %s
+subpocket.tooltip.paper.magic=...code digits magically flown to reappear with different code!
+
+subpocket.tooltip.clock=Alive for more than %s upper-universe hours.
+subpocket.tooltip.clock.one=Alive for more than one upper-universe hour.
+
+subpocket.tooltip.quantity=§7╘ quantity: §o%s
+
+
+subpocket.popup.blocked_ender_chest=Your soul's Ender Link was dissolved by a Subpocket Link
+
+
+subpocket.command.usage=/subpocket <subcommand> [args...]
+subpocket.command.no_subcommand=No subcommand '%s'!
+subpocket.command.list=List of subcommands: %s
+
+subpocket.command.help.usage=/subpocket help [subcommand]
+subpocket.command.help.desc=Shows list of subcommands with their short descriptions.
+
+subpocket.command.add.usage=/subpocket add <player> <item> ['at' <x> <y>] [count] [meta] [nbt]
+subpocket.command.add.desc=Adds specified item to players subpocket(ignoring it being available or not to the player).
+subpocket.command.add.success=Added %sx%s to %s's subpocket.
+
+subpocket.command.remove.usage=/subpocket remove <player> <item> [count|'all'] [meta] [nbt]
+subpocket.command.remove.desc=Removes 'count' items matching given one from players subpocket.
+subpocket.command.remove.success=Removed %s items from %s's subpocket.
+
+subpocket.command.clear.usage=/subpocket clear [player]
+subpocket.command.clear.desc=Clears players subpocket entirely.
+subpocket.command.clear.success=Cleared subpocket of player %s.
+
+subpocket.command.move.usage=/subpocket move <player> <item> [~]<x> [~]<y> [meta] [nbt]
+subpocket.command.move.desc=Moves stack(s) matching given parameters by/at given coordinates.
+subpocket.command.move.success=Moved %s inside %s's subpocket.
+subpocket.command.move.failure=Player %s had no stack matching %s.
+
+subpocket.command.unlock.usage=/subpocket unlock <player> [stage]
+subpocket.command.unlock.desc=Unlocks given stage(or all) of players subpocket-acquiring actions. Stages are: 0 - time, 1 - wither, 2 - diamond and 3 - dragon.
+subpocket.command.unlock.success=Unlocked stage %s of player %s.
+subpocket.command.unlock.already=Player %2$s already did unlock stage %1$s.
+
+subpocket.command.lock.usage=/subpocket lock <player> [stage]
+subpocket.command.lock.desc=Locks given stage(or all) of players subpocket-acquiring actions. Stages are: 0 - time, 1 - wither, 2 - diamond and 3 - dragon.
+subpocket.command.lock.success=Locked stage %s of player %s.
+subpocket.command.lock.already=Player %2$s didn't yet unlock stage %1$s.
+
+subpocket.command.get.usage=/subpocket get <'stage'|'code'> [player]
+subpocket.command.get.desc=Get various subpocket related info about the player.
+subpocket.command.get.stage=%s's stage is %s
+subpocket.command.get.code=%s's code is %s
+
+subpocket.command.show.usage=/subpocket show
+subpocket.command.show.desc=Shows your subpocket WITHOUT THE CODE! Like in creative you can use the code anytime you want, but also you have a command here.
+
+subpocket.config.block_ender_chests=Block Ender Chests
+subpocket.config.block_ender_chests.tooltip=Block usage of ender chests when subpocket is active
+
+subpocket.config.hours_to_live=Hours to live
+subpocket.config.hours_to_live.tooltip=How many real hours player should be alive to start the task for acquiring the subpocket
+
+subpocket.config.need_death_by_dragon=Need death by End Dragon
+subpocket.config.need_death_by_dragon.tooltip=If false then hardcore mechanic is used - only take half your health of damage from dragon

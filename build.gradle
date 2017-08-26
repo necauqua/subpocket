@@ -1,0 +1,102 @@
+buildscript {
+    repositories {
+        jcenter()
+        maven { url = 'http://files.minecraftforge.net/maven' }
+    }
+
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle.forge'
+
+file 'version.properties' withReader {
+    def prop = new Properties()
+    prop.load(it)
+    ext.versions = new ConfigSlurper().parse prop
+}
+
+version = versions.minecraft + '-' + versions.mod
+group = 'info.necauqua.mods'
+archivesBaseName = 'subpocket'
+
+sourceCompatibility = targetCompatibility = '1.8'
+compileJava {
+    sourceCompatibility = targetCompatibility = '1.8'
+}
+
+minecraft {
+    runDir = 'run'
+    version = versions.minecraft + '-' + versions.forge
+    mappings = versions.mappings
+    replace '/* @ACCEPTED_MC_VERSIONS@ */',
+            ", acceptedMinecraftVersions = \"[$versions.minecraft]\""
+    replace '@API_VERSION@', versions.mod.take(versions.mod.lastIndexOf('.'))
+}
+
+processResources {
+    inputs.property 'version', versions.mod
+    inputs.property 'mcversion', versions.minecraft
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+        expand 'version' : project.version, 'mcversion' : project.minecraft.version
+    }
+    from(sourceSets.main.resources.srcDirs) {
+        include '**/*.*'
+        exclude 'mcmod.info'
+    }
+    rename '(.+_at.cfg)', 'META-INF/$1'
+    from('./').include 'LICENSE'
+}
+
+def git(String... arguments) {
+    def out = new ByteArrayOutputStream()
+    exec {
+        executable = 'git'
+        args = arguments.toList()
+        ignoreExitValue = true
+        standardOutput = out
+    }
+    out.toString().trim()
+}
+
+ext.commonManifest = manifest {
+    attributes 'FMLAT': 'subpocket_at.cfg'
+
+    // some metadata which miiight.. be useful
+    def branch = git 'rev-parse', '--abbrev-ref', 'HEAD'
+    if(branch != null && !branch.empty) {
+        attributes 'Git-Branch': branch,
+                   'Git-Hash': git('rev-parse', '--short', 'HEAD')
+    }
+    if(System.env.BUILD_NUMBER) {
+        attributes 'Build-Number': System.env.BUILD_NUMBER
+    }
+}
+
+jar.manifest = commonManifest
+
+task deobfJar(type: Jar) {
+    from sourceSets.main.output
+    manifest = commonManifest
+    classifier 'deobf'
+}
+
+task apiJar(type: Jar, dependsOn: 'sourceMainJava') {
+    from sourceSets.main.allSource
+    from sourceSets.main.output
+    include 'info/necauqua/mods/subpocket/api/**/*'
+    classifier 'api'
+}
+
+artifacts {
+    archives apiJar, deobfJar
+}
+
+idea.module {
+    inheritOutputDirs = true
+    outputDir = file('build/classes/main')
+}
+
+defaultTasks 'clean', 'setupCiWorkspace', 'build'
