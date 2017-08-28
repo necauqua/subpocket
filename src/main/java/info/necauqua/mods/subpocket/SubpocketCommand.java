@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 public class SubpocketCommand extends CommandBase {
 
     private final Subcommand[] subcommands = {
-        new Subcommand("help") {
+        new Subcommand("help", false) {
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                 if(args.length == 0) {
@@ -56,7 +56,7 @@ public class SubpocketCommand extends CommandBase {
                 return args.length == 1 ? getListOfStringsMatchingLastWord(args, names) : Collections.emptyList();
             }
         },
-        new Subcommand("add") {
+        new Subcommand("add", true) {
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                 if(args.length < 2) {
@@ -98,7 +98,7 @@ public class SubpocketCommand extends CommandBase {
                        args.length == 3 ? getListOfStringsMatchingLastWord(args, "at") : Collections.emptyList();
             }
         },
-        new Subcommand("remove") {
+        new Subcommand("remove", true) {
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                 if(args.length < 2) {
@@ -161,7 +161,7 @@ public class SubpocketCommand extends CommandBase {
                        args.length == 3 ? getListOfStringsMatchingLastWord(args, "all") : Collections.emptyList();
             }
         },
-        new Subcommand("clear") {
+        new Subcommand("clear", true) {
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                 EntityPlayer player = args.length == 0 ? getCommandSenderAsPlayer(sender) : getPlayer(server, sender, args[0]);
@@ -175,7 +175,7 @@ public class SubpocketCommand extends CommandBase {
                 return args.length == 1 ? getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) : Collections.emptyList();
             }
         },
-        new Subcommand("move") {
+        new Subcommand("move", true) {
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                 if(args.length < 4) {
@@ -231,7 +231,7 @@ public class SubpocketCommand extends CommandBase {
                        args.length == 2 ? getListOfStringsMatchingLastWord(args, Item.REGISTRY.getKeys()) : Collections.emptyList();
             }
         },
-        new Subcommand("unlock") {
+        new Subcommand("unlock", true) {
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                 EntityPlayer player = args.length == 0 ? getCommandSenderAsPlayer(sender) : getPlayer(server, sender, args[0]);
@@ -253,7 +253,7 @@ public class SubpocketCommand extends CommandBase {
                        args.length == 2 ? getListOfStringsMatchingLastWord(args, "0", "1", "2", "3") : Collections.emptyList();
             }
         },
-        new Subcommand("lock") {
+        new Subcommand("lock", true) {
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                 EntityPlayer player = args.length == 0 ? getCommandSenderAsPlayer(sender) : getPlayer(server, sender, args[0]);
@@ -275,7 +275,7 @@ public class SubpocketCommand extends CommandBase {
                        args.length == 2 ? getListOfStringsMatchingLastWord(args, "0", "1", "2", "3") : Collections.emptyList();
             }
         },
-        new Subcommand("get") {
+        new Subcommand("get", false) {
 
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
@@ -299,7 +299,7 @@ public class SubpocketCommand extends CommandBase {
                        args.length == 2 ? getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) : Collections.emptyList();
             }
         },
-        new Subcommand("show") {
+        new Subcommand("show", false) {
             @Override
             public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                 EntityPlayerMP player = getCommandSenderAsPlayer(sender);
@@ -332,11 +332,6 @@ public class SubpocketCommand extends CommandBase {
     @Override
     public String getUsage(@Nonnull ICommandSender sender) {
         return Subpocket.MODID + ".command.usage";
-    }
-
-    @Override
-    public int getRequiredPermissionLevel() {
-        return 2;
     }
 
     @Override
@@ -391,10 +386,12 @@ public class SubpocketCommand extends CommandBase {
         protected final String prefix; // another dumb alias huh
 
         private final String name;
+        private final boolean op;
 
-        public Subcommand(String name) {
+        public Subcommand(String name, boolean op) {
             this.name = name;
             prefix = Subpocket.MODID + ".command." + name + ".";
+            this.op = op;
         }
 
         public String getName() {
@@ -404,8 +401,12 @@ public class SubpocketCommand extends CommandBase {
         private ThreadLocal<ICommandSender> sender = new ThreadLocal<>();
 
         public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-            this.sender.set(sender);
-            call(server, sender, args);
+            if(!op || sender.canUseCommand(2, parent.getName() + " " + name)) {
+                this.sender.set(sender);
+                call(server, sender, args);
+            }else {
+                throw new CommandException("commands.generic.permission");
+            }
         }
 
         protected void answer(String key, Object... args) {
