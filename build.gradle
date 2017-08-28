@@ -31,7 +31,7 @@ minecraft {
     version = versions.minecraft + '-' + versions.forge
     mappings = versions.mappings
     replace '/* @ACCEPTED_MC_VERSIONS@ */',
-            ", acceptedMinecraftVersions = \"[$versions.minecraft]\""
+            ", acceptedMinecraftVersions = \"[$versions.min_minecraft,$versions.minecraft]\""
     replace '@API_VERSION@', versions.mod.take(versions.mod.lastIndexOf('.'))
 }
 
