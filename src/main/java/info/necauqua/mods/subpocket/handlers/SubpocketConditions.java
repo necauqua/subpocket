@@ -247,7 +247,7 @@ public class SubpocketConditions {
     public static void onBlockRightClock(RightClickBlock e) {
         if(e.getWorld().getBlockState(e.getPos()).getBlock() == Blocks.ENDER_CHEST) {
             EntityPlayer player = e.getEntityPlayer();
-            if(Config.blockEnderChests && CapabilitySubpocket.get(player).isAvailableToPlayer()) {
+            if(Config.blockEnderChests && !player.capabilities.isCreativeMode && CapabilitySubpocket.get(player).isAvailableToPlayer()) {
                 if(!player.world.isRemote) {
                     player.sendStatusMessage(new TextComponentTranslation(Subpocket.MODID + ".popup.blocked_ender_chest"), true);
                 }
