@@ -1,15 +1,10 @@
 
 #gradle
-.gradle
-build
-run
+/.gradle
+/build
 
 # intellij
-.idea
-out # i've configured gradle to inherit output dirs but to be safe
-*.iml
-*.iws
-*.ipr
+/.idea
 
 # JVM error logs
 hs_err_pid*.log
