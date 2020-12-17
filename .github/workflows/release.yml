@@ -1,10 +1,10 @@
 name: Release
 on:
   push:
-    tags:
-      - '**'
-    branches-ignore:
-      - '!master'
+    branches:
+      - master
+    paths:
+      - 'src/**'
 jobs:
   release:
     name: Release
@@ -26,5 +26,14 @@ jobs:
           echo "$KEYSTORE" | base64 -d > $HOME/.gradle/keystore.jks
           echo "$GRADLE_PROPERTIES" | base64 -d | sed "s:\$HOME:$HOME:g" > $HOME/.gradle/gradle.properties
 
-      - name: Build and push to curse and github
+      - name: Check if this is a tag
+        id: tag-check
+        run: git describe --exact-match HEAD && echo '::set-output name=TAGGED::1' || true
+
+      - name: Make a release build and push it to curse and github
         run: ./gradlew publish
+        if: steps.tag-check.outputs.TAGGED
+
+      - name: Make a git build and push it to curse
+        run: ./gradlew curseforge
+        if: '!steps.tag-check.outputs.TAGGED'
