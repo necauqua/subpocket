@@ -8,8 +8,10 @@ package dev.necauqua.mods.subpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocket.StackSizeMode;
 import dev.necauqua.mods.subpocket.gui.ClickState;
 import dev.necauqua.mods.subpocket.gui.ContainerSubpocket;
+import dev.necauqua.mods.subpocket.handlers.SyncHandler;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.network.NetHandlerPlayClient;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.NetHandlerPlayServer;
@@ -44,6 +46,8 @@ public final class Network {
         EntityPlayer player = Minecraft.getMinecraft().player;
         if (player != null) {
             CapabilitySubpocket.get(player).deserializeNBT(payload.readCompoundTag());
+        } else {
+            SyncHandler.serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti = payload.readCompoundTag();
         }
     }
 

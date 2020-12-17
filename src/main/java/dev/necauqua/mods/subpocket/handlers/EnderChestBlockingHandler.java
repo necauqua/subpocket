@@ -35,7 +35,7 @@ public final class EnderChestBlockingHandler {
             return;
         }
         if (!player.world.isRemote) {
-            player.sendStatusMessage(new TextComponentTranslation(MODID + ".popup.blocked_ender_chest"), true);
+            player.sendStatusMessage(new TextComponentTranslation("popup." + MODID + ":blocked_ender_chest"), true);
         }
         e.setUseBlock(Event.Result.DENY);
     }

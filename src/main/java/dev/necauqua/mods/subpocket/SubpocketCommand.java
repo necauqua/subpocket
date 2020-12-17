@@ -37,7 +37,7 @@ import static net.minecraftforge.oredict.OreDictionary.WILDCARD_VALUE;
 public class SubpocketCommand extends CommandBase {
 
     private final Subcommand[] subcommands = {
-            new Subcommand("help", false) {
+            new Subcommand("help") {
                 @Override
                 public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                     if (args.length == 0) {
@@ -76,7 +76,7 @@ public class SubpocketCommand extends CommandBase {
                     return args.length == 1 ? getListOfStringsMatchingLastWord(args, names) : emptyList();
                 }
             },
-            new Subcommand("add", true) {
+            new Subcommand("add") {
                 @Override
                 public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                     if (args.length < 2) {
@@ -118,7 +118,7 @@ public class SubpocketCommand extends CommandBase {
                                     args.length == 3 ? getListOfStringsMatchingLastWord(args, "at") : emptyList();
                 }
             },
-            new Subcommand("remove", true) {
+            new Subcommand("remove") {
                 @Override
                 public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                     if (args.length < 2) {
@@ -181,7 +181,7 @@ public class SubpocketCommand extends CommandBase {
                                     args.length == 3 ? getListOfStringsMatchingLastWord(args, "all") : emptyList();
                 }
             },
-            new Subcommand("clear", true) {
+            new Subcommand("clear") {
                 @Override
                 public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                     EntityPlayer player = args.length == 0 ? getCommandSenderAsPlayer(sender) : getPlayer(server, sender, args[0]);
@@ -195,7 +195,7 @@ public class SubpocketCommand extends CommandBase {
                     return args.length == 1 ? getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) : emptyList();
                 }
             },
-            new Subcommand("move", true) {
+            new Subcommand("move") {
                 @Override
                 public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                     if (args.length < 4) {
@@ -252,7 +252,7 @@ public class SubpocketCommand extends CommandBase {
                             args.length == 2 ? getListOfStringsMatchingLastWord(args, Item.REGISTRY.getKeys()) : emptyList();
                 }
             },
-            new Subcommand("unlock", true) {
+            new Subcommand("unlock") {
                 @Override
                 public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                     EntityPlayer player = args.length == 0 ?
@@ -275,7 +275,7 @@ public class SubpocketCommand extends CommandBase {
                             emptyList();
                 }
             },
-            new Subcommand("lock", true) {
+            new Subcommand("lock") {
                 @Override
                 public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                     EntityPlayer player = args.length == 0 ?
@@ -299,7 +299,7 @@ public class SubpocketCommand extends CommandBase {
                             emptyList();
                 }
             },
-            new Subcommand("open", false) {
+            new Subcommand("open") {
                 @Override
                 public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
                     EntityPlayerMP player = getCommandSenderAsPlayer(sender);
@@ -386,12 +386,10 @@ public class SubpocketCommand extends CommandBase {
         protected final String prefix; // another dumb alias huh
 
         private final String name;
-        private final boolean op;
 
-        public Subcommand(String name, boolean op) {
+        public Subcommand(String name) {
             this.name = name;
             prefix = "command." + MODID + ":" + name + ".";
-            this.op = op;
         }
 
         public String getName() {
@@ -401,7 +399,7 @@ public class SubpocketCommand extends CommandBase {
         private final ThreadLocal<ICommandSender> sender = new ThreadLocal<>();
 
         public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-            if (!op || sender.canUseCommand(2, parent.getName() + " " + name)) {
+            if (sender.canUseCommand(2, parent.getName() + " " + name)) {
                 this.sender.set(sender);
                 call(server, sender, args);
             } else {
