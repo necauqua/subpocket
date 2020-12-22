@@ -5,420 +5,328 @@
 
 package dev.necauqua.mods.subpocket;
 
-import dev.necauqua.mods.subpocket.api.ISubpocketStack;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import dev.necauqua.mods.subpocket.RelativeFloatArgumentType.RelativeFloat;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
-import dev.necauqua.mods.subpocket.gui.ContainerSubpocket;
-import dev.necauqua.mods.subpocket.handlers.SyncHandler;
+import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.impl.SubpocketStackFactoryImpl;
-import net.minecraft.command.*;
-import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.command.CommandSource;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.JsonToNBT;
-import net.minecraft.nbt.NBTException;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.NonNullList;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
+import net.minecraftforge.fml.network.NetworkHooks;
+import net.minecraftforge.registries.ForgeRegistries;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import static com.mojang.brigadier.arguments.IntegerArgumentType.getInteger;
+import static com.mojang.brigadier.arguments.IntegerArgumentType.integer;
+import static dev.necauqua.mods.subpocket.BigIntArgumentType.bigint;
+import static dev.necauqua.mods.subpocket.BigIntArgumentType.getBigInt;
+import static dev.necauqua.mods.subpocket.RelativeFloatArgumentType.getRelativeFloat;
+import static dev.necauqua.mods.subpocket.RelativeFloatArgumentType.relativeFloat;
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
-import static java.util.Collections.emptyList;
-import static net.minecraftforge.oredict.OreDictionary.WILDCARD_VALUE;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singleton;
+import static net.minecraft.command.Commands.argument;
+import static net.minecraft.command.Commands.literal;
+import static net.minecraft.command.arguments.EntityArgument.getPlayers;
+import static net.minecraft.command.arguments.EntityArgument.multiplePlayers;
+import static net.minecraft.command.arguments.ItemArgument.getItemStack;
+import static net.minecraft.command.arguments.ItemArgument.itemStack;
 
-public class SubpocketCommand extends CommandBase {
+@EventBusSubscriber(modid = MODID)
+public final class SubpocketCommand {
 
-    private final Subcommand[] subcommands = {
-            new Subcommand("help") {
-                @Override
-                public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-                    if (args.length == 0) {
-                        for (Subcommand subcommand : subcommands) {
-                            notifyCommandListener(sender, parent, "§c%s", new TextComponentTranslation(subcommand.prefix + "usage"));
-                            notifyCommandListener(sender, parent, subcommand.prefix + "desc");
+    private static final List<LiteralArgumentBuilder<CommandSource>> SUBCOMMANDS = asList(
+            literal("add")
+                    .then(argument("player", multiplePlayers())
+                            .then(argument("item", itemStack())
+                                    .executes(context -> add(
+                                            context.getSource(),
+                                            getItemStack(context, "item").createStack(1, false),
+                                            BigInteger.ONE,
+                                            getPlayers(context, "player"), 0, 0))
+                                    .then(argument("count", bigint(BigInteger.ONE))
+                                            .executes(context -> add(
+                                                    context.getSource(),
+                                                    getItemStack(context, "item").createStack(1, false),
+                                                    getBigInt(context, "count"),
+                                                    getPlayers(context, "player"), 0, 0))
+                                            .then(literal("at")
+                                                    .then(argument("x", integer(1, ContainerSubpocket.WIDTH - 17))
+                                                            .then(argument("y", integer(1, ContainerSubpocket.HEIGHT - 17))
+                                                                    .executes(context -> add(
+                                                                            context.getSource(),
+                                                                            getItemStack(context, "item").createStack(1, false),
+                                                                            getBigInt(context, "count"),
+                                                                            getPlayers(context, "player"),
+                                                                            getInteger(context, "x"),
+                                                                            getInteger(context, "y"))))))))),
+
+            literal("remove")
+                    .then(argument("player", multiplePlayers())
+                            .then(argument("item", itemStack())
+                                    .executes(context -> remove(
+                                            context.getSource(),
+                                            getItemStack(context, "item").createStack(1, false),
+                                            BigInteger.ONE,
+                                            getPlayers(context, "player")))
+                                    .then(literal("all")
+                                            .executes(context -> remove(
+                                                    context.getSource(),
+                                                    getItemStack(context, "item").createStack(1, false),
+                                                    null,
+                                                    getPlayers(context, "player"))))
+                                    .then(argument("count", bigint(BigInteger.ONE))
+                                            .executes(context -> remove(
+                                                    context.getSource(),
+                                                    getItemStack(context, "item").createStack(1, false),
+                                                    getBigInt(context, "count"),
+                                                    getPlayers(context, "player")))))),
+
+            literal("clear")
+                    .executes(context -> clear(context.getSource(), singleton(context.getSource().asPlayer())))
+                    .then(argument("player", multiplePlayers())
+                            .executes(context -> clear(context.getSource(), getPlayers(context, "player")))),
+
+            literal("move")
+                    .then(argument("player", multiplePlayers())
+                            .then(argument("item", itemStack())
+                                    .then(argument("x", relativeFloat())
+                                            .then(argument("y", relativeFloat())
+                                                    .executes(context -> move(
+                                                            context.getSource(),
+                                                            getItemStack(context, "item").createStack(1, false),
+                                                            getPlayers(context, "player"),
+                                                            getRelativeFloat(context, "x"),
+                                                            getRelativeFloat(context, "y"))))))),
+
+            literal("unlock")
+                    .executes(context -> unlock(context.getSource(), singleton(context.getSource().asPlayer())))
+                    .then(argument("player", multiplePlayers())
+                            .executes(context -> unlock(context.getSource(), getPlayers(context, "player")))),
+
+            literal("lock")
+                    .executes(context -> lock(context.getSource(), singleton(context.getSource().asPlayer())))
+                    .then(argument("player", multiplePlayers())
+                            .executes(context -> lock(context.getSource(), getPlayers(context, "player")))),
+
+            literal("open")
+                    .executes(context -> open(context.getSource(), singleton(context.getSource().asPlayer()), false))
+                    .then(argument("player", multiplePlayers())
+                            .executes(context -> open(context.getSource(), getPlayers(context, "player"), false))
+                            .then(literal("force")
+                                    .executes(context -> open(context.getSource(), getPlayers(context, "player"), true))))
+
+    );
+
+    private static final LiteralArgumentBuilder<CommandSource> HELP =
+            literal("help")
+                    .executes(context -> {
+                        context.getSource().sendFeedback(helpCommandTitle(SubpocketCommand.HELP), true);
+                        context.getSource().sendFeedback(new TextComponentTranslation("command.subpocket:help.desc"), true);
+                        for (LiteralArgumentBuilder<CommandSource> subcommand : SUBCOMMANDS) {
+                            context.getSource().sendFeedback(helpCommandTitle(subcommand), true);
+                            context.getSource().sendFeedback(new TextComponentTranslation("command.subpocket:" + subcommand.getLiteral() + ".desc"), true);
                         }
-                    } else {
-                        if (args[0].equals("debug") && sender instanceof EntityPlayer) {
-                            EntityPlayer player = (EntityPlayer) sender;
+                        return 1;
+                    })
+                    .then(literal("debug")
+                            .executes(context -> {
+                                EntityPlayer player = context.getSource().asPlayer();
 
-                            NonNullList<ItemStack> tab = NonNullList.create();
-                            for (Item item : Item.REGISTRY) {
-                                item.getSubItems(CreativeTabs.BUILDING_BLOCKS, tab);
-                                item.getSubItems(CreativeTabs.MATERIALS, tab);
-                                item.getSubItems(CreativeTabs.MISC, tab);
-                            }
-
-                            ISubpocket storage = CapabilitySubpocket.get(player);
-                            for (ItemStack ref : tab) {
-                                BigInteger number = BigInteger.valueOf(ThreadLocalRandom.current().nextInt(9999) + 1);
-                                storage.add(SubpocketStackFactoryImpl.INSTANCE.create(ref, number));
-                            }
-
-                            SyncHandler.sync(player);
-                            return;
-                        }
-                        String prefix = findSubcommand(args[0]).prefix;
-                        notifyCommandListener(sender, parent, "§c%s", new TextComponentTranslation(prefix + "usage"));
-                        notifyCommandListener(sender, parent, prefix + "desc");
-                    }
-                }
-
-                @Override
-                public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args) {
-                    return args.length == 1 ? getListOfStringsMatchingLastWord(args, names) : emptyList();
-                }
-            },
-            new Subcommand("add") {
-                @Override
-                public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-                    if (args.length < 2) {
-                        wrong();
-                    }
-                    EntityPlayer player = getPlayer(server, sender, args[0]);
-                    Item item = getItemByText(sender, args[1]);
-
-                    int x = 0, y = 0, off = 0;
-                    if (args.length > 2 && "at".equalsIgnoreCase(args[2])) {
-                        if (args.length < 5) {
-                            wrong();
-                        }
-                        x = parseInt(args[3], 1, ContainerSubpocket.WIDTH - 17);
-                        y = parseInt(args[4], 1, ContainerSubpocket.HEIGHT - 17);
-                        off = 3;
-                    }
-
-                    BigInteger count = args.length > 2 + off ? parsePosBigInt(args[2 + off]) : BigInteger.ONE;
-                    int meta = args.length > 3 + off ? parseInt(args[3 + off]) : 0;
-
-                    ItemStack ref = new ItemStack(item, 1, meta);
-
-                    fetchNBT(ref, args, 4 + off);
-
-                    ISubpocketStack stack = off != 0 ? SubpocketStackFactoryImpl.INSTANCE.create(ref, count, x, y) :
-                            SubpocketStackFactoryImpl.INSTANCE.create(ref, count);
-
-                    CapabilitySubpocket.get(player).add(stack);
-                    SyncHandler.sync(player);
-
-                    answer("success", stack.getRef().getTextComponent(), count.toString(), player.getDisplayName());
-                }
-
-                @Override
-                public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args) {
-                    return args.length == 1 ? getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) :
-                            args.length == 2 ? getListOfStringsMatchingLastWord(args, Item.REGISTRY.getKeys()) :
-                                    args.length == 3 ? getListOfStringsMatchingLastWord(args, "at") : emptyList();
-                }
-            },
-            new Subcommand("remove") {
-                @Override
-                public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-                    if (args.length < 2) {
-                        wrong();
-                    }
-                    EntityPlayer player = getPlayer(server, sender, args[0]);
-                    Item item = getItemByText(sender, args[1]);
-
-                    BigInteger count = args.length > 2 ? "all".equalsIgnoreCase(args[2]) ? null : parsePosBigInt(args[2]) : BigInteger.ONE;
-                    int meta = args.length > 3 ? parseInt(args[3]) : 0;
-
-                    ItemStack ref = new ItemStack(item, 1, meta);
-
-                    fetchNBT(ref, args, 4);
-
-                    ISubpocket storage = CapabilitySubpocket.get(player);
-
-                    List<ISubpocketStack> toRemove = new LinkedList<>();
-
-                    if (count == null) { // gone functional
-                        toRemove = storage.getStacksView().stream()
-                                .filter(s -> s.matches(ref))
-                                .collect(Collectors.toList());
-                        count = BigInteger.ZERO;
-                    } else {
-                        for (ISubpocketStack stack : storage) {
-                            if (stack.matches(ref)) {
-                                int cmp = count.compareTo(stack.getCount());
-                                if (cmp > 0) {
-                                    toRemove.add(stack);
-                                    count = count.subtract(stack.getCount());
-                                } else if (cmp == 0) {
-                                    toRemove.add(stack);
-                                    count = BigInteger.ZERO;
-                                    break;
-                                } else {
-                                    stack.setCount(stack.getCount().subtract(count));
-                                    break;
+                                NonNullList<ItemStack> tab = NonNullList.create();
+                                for (Item item : ForgeRegistries.ITEMS) {
+                                    item.fillItemGroup(ItemGroup.BUILDING_BLOCKS, tab);
+                                    item.fillItemGroup(ItemGroup.MATERIALS, tab);
+                                    item.fillItemGroup(ItemGroup.MISC, tab);
                                 }
-                            }
-                        }
-                    }
 
-                    toRemove.forEach(storage::remove);
+                                ISubpocket storage = CapabilitySubpocket.get(player);
+                                for (ItemStack ref : tab) {
+                                    BigInteger number = BigInteger.valueOf(ThreadLocalRandom.current().nextInt(9999) + 1);
+                                    storage.add(SubpocketStackFactoryImpl.INSTANCE.create(ref, number));
+                                }
 
-                    SyncHandler.sync(player);
+                                Network.syncToClient(player);
+                                return 1;
+                            }));
 
-                    BigInteger removed = toRemove.stream()
-                            .map(ISubpocketStack::getCount)
-                            .reduce(BigInteger.ZERO, BigInteger::add);
+    private static ITextComponent helpCommandTitle(LiteralArgumentBuilder<CommandSource> subcommand) {
+        return new TextComponentString("/subpocket " + subcommand.getLiteral())
+                .applyTextStyle(TextFormatting.GOLD)
+                .appendText(":");
+    }
 
-                    answer("success", removed.add(count).toString(), player.getDisplayName());
-                    // adding count which may contain leftover from partial stack removal from else branch
-                }
+    @SubscribeEvent
+    public static void on(FMLServerStartingEvent e) {
+        LiteralArgumentBuilder<CommandSource> subpocket = literal("subpocket")
+                .requires(src -> src.hasPermissionLevel(2));
 
-                @Override
-                public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args) {
-                    return args.length == 1 ? getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) :
-                            args.length == 2 ? getListOfStringsMatchingLastWord(args, Item.REGISTRY.getKeys()) :
-                                    args.length == 3 ? getListOfStringsMatchingLastWord(args, "all") : emptyList();
-                }
-            },
-            new Subcommand("clear") {
-                @Override
-                public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-                    EntityPlayer player = args.length == 0 ? getCommandSenderAsPlayer(sender) : getPlayer(server, sender, args[0]);
-                    CapabilitySubpocket.get(player).clear();
-                    SyncHandler.sync(player);
-                    answer("success", sender.getDisplayName());
-                }
+        SUBCOMMANDS.forEach(subcommand ->
+                HELP.then(literal(subcommand.getLiteral())
+                        .executes(context -> {
+                            context.getSource().sendFeedback(new TextComponentTranslation("command.subpocket:" + subcommand.getLiteral() + ".desc"), true);
+                            return 1;
+                        })));
 
-                @Override
-                public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args) {
-                    return args.length == 1 ? getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) : emptyList();
-                }
-            },
-            new Subcommand("move") {
-                @Override
-                public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-                    if (args.length < 4) {
-                        wrong();
-                    }
-                    EntityPlayer player = getPlayer(server, sender, args[0]);
-                    Item item = getItemByText(sender, args[1]);
+        subpocket.then(HELP);
+        SUBCOMMANDS.forEach(subpocket::then);
 
-                    String sx = args[2], sy = args[3];
-                    boolean rx = false, ry = false;
-                    if (sx.startsWith("~")) {
-                        rx = true;
-                        sx = sx.substring(1);
-                    }
-                    if (sy.startsWith("~")) {
-                        ry = true;
-                        sy = sy.substring(1);
-                    }
-                    int x = rx && sx.length() == 0 ? 0 : parseInt(sx, 1, ContainerSubpocket.WIDTH - 17);
-                    int y = ry && sy.length() == 0 ? 0 : parseInt(sy, 1, ContainerSubpocket.HEIGHT - 17);
+        e.getCommandDispatcher().register(subpocket);
+    }
 
-                    int meta = args.length > 4 ? parseInt(args[4]) : 0;
-
-                    ItemStack ref = new ItemStack(item, 1, meta);
-                    fetchNBT(ref, args, 5);
-
-                    ISubpocket storage = CapabilitySubpocket.get(player);
-                    List<ISubpocketStack> toElevate = new LinkedList<>();
-
-                    for (ISubpocketStack stack : storage) {
-                        ItemStack copy = stack.getRef();
-                        if (copy.getItem() == ref.getItem()
-                                && (ref.getItemDamage() == WILDCARD_VALUE || copy.getItemDamage() == ref.getItemDamage())
-                                && (ref.getTagCompound() == null || Objects.equals(ref.getTagCompound(), copy.getTagCompound()))) {
-
-                            stack.setPos(x + (rx ? stack.getX() : 0), y + (ry ? stack.getY() : 0));
-                            toElevate.add(stack);
-
-                            answer("success", copy.getTextComponent(), player.getDisplayName());
-                        }
-                    }
-                    toElevate.forEach(storage::elevate);
-
-                    if (toElevate.isEmpty()) {
-                        answer("failure", player.getDisplayName(), ref.getTextComponent());
-                    } else {
-                        SyncHandler.sync(player);
-                    }
-                }
-
-                @Override
-                public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args) {
-                    return args.length == 1 ? getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) :
-                            args.length == 2 ? getListOfStringsMatchingLastWord(args, Item.REGISTRY.getKeys()) : emptyList();
-                }
-            },
-            new Subcommand("unlock") {
-                @Override
-                public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-                    EntityPlayer player = args.length == 0 ?
-                            getCommandSenderAsPlayer(sender) :
-                            getPlayer(server, sender, args[0]);
-                    ISubpocket storage = CapabilitySubpocket.get(player);
-                    if (storage.isUnlocked()) {
-                        answer("failure", player.getDisplayName());
-                    } else {
-                        answer("success", player.getDisplayName());
-                        storage.unlock();
-                        SyncHandler.sync(player);
-                    }
-                }
-
-                @Override
-                public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args) {
-                    return args.length == 1 ?
-                            getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) :
-                            emptyList();
-                }
-            },
-            new Subcommand("lock") {
-                @Override
-                public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-                    EntityPlayer player = args.length == 0 ?
-                            getCommandSenderAsPlayer(sender) :
-                            getPlayer(server, sender, args[0]);
-                    answer("success", player.getDisplayName());
-                    ISubpocket storage = CapabilitySubpocket.get(player);
-                    if (storage.isUnlocked()) {
-                        answer("success", player.getDisplayName());
-                        storage.lock();
-                        SyncHandler.sync(player);
-                    } else {
-                        answer("failure", player.getDisplayName());
-                    }
-                }
-
-                @Override
-                public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args) {
-                    return args.length == 1 ?
-                            getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames()) :
-                            emptyList();
-                }
-            },
-            new Subcommand("open") {
-                @Override
-                public void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-                    EntityPlayerMP player = getCommandSenderAsPlayer(sender);
-                    player.openGui(Subpocket.instance, 0, player.world, 0, 0, 0);
-                }
-            }
-    };
-
-    private final List<String> names = Arrays.stream(subcommands).map(Subcommand::getName).collect(Collectors.toList());
-
-    private static void fetchNBT(ItemStack stack, String[] args, int pos) throws CommandException {
-        if (args.length <= pos) {
-            return;
+    private static int add(CommandSource src, ItemStack ref, BigInteger count, Collection<EntityPlayerMP> players, int x, int y) {
+        ISubpocketStack stack = x != 0 || y != 0 ?
+                SubpocketStackFactoryImpl.INSTANCE.create(ref, count, x, y) :
+                SubpocketStackFactoryImpl.INSTANCE.create(ref, count); // use the pseudorandom positioning algorithm from that method
+        for (EntityPlayerMP player : players) {
+            CapabilitySubpocket.get(player).add(stack);
+            Network.syncToClient(player);
+            src.sendFeedback(new TextComponentTranslation("command.subpocket:add.success", stack.getRef().getTextComponent(), count.toString(), player.getDisplayName()), true);
         }
-        String s = buildString(args, pos);
-        try {
-            stack.setTagCompound(JsonToNBT.getTagFromJson(s));
-        } catch (NBTException e) {
-            throw new CommandException("commands.give.tagError", e.getMessage());
-        }
+        return players.size();
     }
 
-    @Nonnull
-    @Override
-    public String getName() {
-        return "subpocket";
-    }
+    private static int remove(CommandSource src, ItemStack ref, @Nullable BigInteger count, Collection<EntityPlayerMP> players) {
+        int result = 0;
+        for (EntityPlayerMP player : players) {
+            ISubpocket storage = CapabilitySubpocket.get(player);
 
-    @Nonnull
-    @Override
-    public String getUsage(@Nonnull ICommandSender sender) {
-        return "command." + MODID + ":meta.usage";
-    }
+            List<ISubpocketStack> toRemove = new ArrayList<>();
 
-    @Override
-    public void execute(@Nonnull MinecraftServer server, @Nonnull ICommandSender sender, @Nonnull String[] args) throws CommandException {
-        if (args.length == 0) {
-            throw new WrongUsageException(getUsage(sender));
-        } else {
-            findSubcommand(args[0]).execute(server, sender, Arrays.copyOfRange(args, 1, args.length));
-        }
-    }
-
-    @Nonnull
-    @Override
-    public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos look) {
-        if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, names);
-        } else if (args.length > 1) {
-            try {
-                return findSubcommand(args[0]).getTabCompletions(server, sender, Arrays.copyOfRange(args, 1, args.length));
-            } catch (CommandException e) {
-                // NOOP - if nah then pass to tail return
-            }
-        }
-        return emptyList();
-    }
-
-    private BigInteger parsePosBigInt(String str) throws NumberInvalidException {
-        try {
-            BigInteger bigint = new BigInteger(str);
-            if (bigint.signum() > 0) {
-                return bigint;
+            if (count == null) { // gone functional
+                toRemove = storage.getStacksView().stream()
+                        .filter(s -> s.matches(ref))
+                        .collect(Collectors.toList());
+                count = BigInteger.ZERO;
             } else {
-                throw new NumberInvalidException("commands.generic.num.tooSmall", bigint.toString(), 1);
+                for (ISubpocketStack stack : storage) {
+                    if (!stack.matches(ref)) {
+                        continue;
+                    }
+                    int cmp = count.compareTo(stack.getCount());
+                    if (cmp > 0) {
+                        toRemove.add(stack);
+                        count = count.subtract(stack.getCount());
+                    } else if (cmp == 0) {
+                        toRemove.add(stack);
+                        count = BigInteger.ZERO;
+                        break;
+                    } else {
+                        stack.setCount(stack.getCount().subtract(count));
+                        break;
+                    }
+                }
             }
-        } catch (NumberFormatException nfe) {
-            throw new NumberInvalidException("commands.generic.num.invalid", str);
+            if (toRemove.isEmpty()) {
+                src.sendFeedback(new TextComponentTranslation("command.subpocket:remove.failure", player.getDisplayName(), ref.getTextComponent()), true);
+                continue;
+            }
+            toRemove.forEach(storage::remove);
+            Network.syncToClient(player);
+            BigInteger removed = toRemove.stream()
+                    .map(ISubpocketStack::getCount)
+                    .reduce(BigInteger.ZERO, BigInteger::add);
+            src.sendFeedback(new TextComponentTranslation("command.subpocket:remove.success", removed, player.getDisplayName()), true);
+            result++;
         }
+        return result;
     }
 
-    private Subcommand findSubcommand(String name) throws CommandException {
-        for (Subcommand subcommand : subcommands) {
-            if (subcommand.getName().equals(name)) {
-                return subcommand;
-            }
+    private static int clear(CommandSource src, Collection<EntityPlayerMP> players) {
+        for (EntityPlayerMP player : players) {
+            CapabilitySubpocket.get(player).clear();
+            Network.syncToClient(player);
+            src.sendFeedback(new TextComponentTranslation("command.subpocket:clear.success", player.getDisplayName()), true);
         }
-        throw new WrongUsageException("command." + MODID + ":meta.no_subcommand", name);
+        return players.size();
     }
 
-    private abstract class Subcommand {
+    private static int move(CommandSource src, ItemStack ref, Collection<EntityPlayerMP> players, RelativeFloat x, RelativeFloat y) {
+        int result = 0;
+        for (EntityPlayerMP player : players) {
+            ISubpocket storage = CapabilitySubpocket.get(player);
+            List<ISubpocketStack> toElevate = new LinkedList<>();
 
-        protected final SubpocketCommand parent = SubpocketCommand.this; // super-stupid alias, lol
-        protected final String prefix; // another dumb alias huh
+            for (ISubpocketStack stack : storage) {
+                ItemStack copy = stack.getRef();
+                if (copy.getItem() == ref.getItem() && (ref.getTag() == null || Objects.equals(ref.getTag(), copy.getTag()))) {
+                    stack.setPos(x.get(stack.getX()), y.get(stack.getY()));
+                    toElevate.add(stack);
 
-        private final String name;
+                    src.sendFeedback(new TextComponentTranslation("command.subpocket:move.success", copy.getTextComponent(), player.getDisplayName()), true);
+                }
+            }
+            toElevate.forEach(storage::elevate);
 
-        public Subcommand(String name) {
-            this.name = name;
-            prefix = "command." + MODID + ":" + name + ".";
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        private final ThreadLocal<ICommandSender> sender = new ThreadLocal<>();
-
-        public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-            if (sender.canUseCommand(2, parent.getName() + " " + name)) {
-                this.sender.set(sender);
-                call(server, sender, args);
+            if (toElevate.isEmpty()) {
+                src.sendFeedback(new TextComponentTranslation("command.subpocket:move.failure", player.getDisplayName(), ref.getTextComponent()), true);
             } else {
-                throw new CommandException("commands.generic.permission");
+                Network.syncToClient(player);
             }
         }
+        return result;
+    }
 
-        protected void answer(String key, Object... args) {
-            notifyCommandListener(sender.get(), parent, prefix + key, args);
+    private static int unlock(CommandSource src, Collection<EntityPlayerMP> players) {
+        int result = 0;
+        for (EntityPlayerMP player : players) {
+            ISubpocket storage = CapabilitySubpocket.get(player);
+            if (storage.isUnlocked()) {
+                src.sendFeedback(new TextComponentTranslation("command.subpocket:unlock.failure", player.getDisplayName()), true);
+                continue;
+            }
+            storage.unlock();
+            Network.syncToClient(player);
+            src.sendFeedback(new TextComponentTranslation("command.subpocket:unlock.success", player.getDisplayName()), true);
+            result++;
         }
+        return result;
+    }
 
-        protected void wrong() throws WrongUsageException {
-            throw new WrongUsageException(prefix + "usage");
+    private static int lock(CommandSource src, Collection<EntityPlayerMP> players) {
+        int result = 0;
+        for (EntityPlayerMP player : players) {
+            ISubpocket storage = CapabilitySubpocket.get(player);
+            if (!storage.isUnlocked()) {
+                src.sendFeedback(new TextComponentTranslation("command.subpocket:unlock.failure", player.getDisplayName()), true);
+                continue;
+            }
+            storage.lock();
+            Network.syncToClient(player);
+            src.sendFeedback(new TextComponentTranslation("command.subpocket:unlock.success", player.getDisplayName()), true);
+            result++;
         }
+        return result;
+    }
 
-        public abstract void call(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException;
-
-        public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args) {
-            return emptyList();
+    private static int open(CommandSource src, Collection<EntityPlayerMP> players, boolean force) {
+        int result = 0;
+        for (EntityPlayerMP player : players) {
+            if (!force && !CapabilitySubpocket.get(player).isUnlocked()) {
+                src.sendFeedback(new TextComponentTranslation("command.subpocket:open.failure", player.getDisplayName()), true);
+                continue;
+            }
+            NetworkHooks.openGui(player, SubspatialKeyItem.INSTANCE);
+            src.sendFeedback(new TextComponentTranslation("command.subpocket:open.success", player.getDisplayName()), true);
+            result++;
         }
+        return result;
     }
 }

@@ -3,17 +3,14 @@
  * Licensed under MIT, see the LICENSE file for details.
  */
 
-package dev.necauqua.mods.subpocket.gui;
+package dev.necauqua.mods.subpocket;
 
-import dev.necauqua.mods.subpocket.Config;
-import dev.necauqua.mods.subpocket.Network;
-import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocket.StackSizeMode;
+import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.impl.SubpocketStackImpl;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.resources.I18n;
@@ -21,27 +18,31 @@ import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.client.config.GuiUtils;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
 
-import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
-import static dev.necauqua.mods.subpocket.Subpocket.MODID;
-import static dev.necauqua.mods.subpocket.gui.ContainerSubpocket.HEIGHT;
-import static dev.necauqua.mods.subpocket.gui.ContainerSubpocket.WIDTH;
+import static dev.necauqua.mods.subpocket.ContainerSubpocket.HEIGHT;
+import static dev.necauqua.mods.subpocket.ContainerSubpocket.WIDTH;
+import static dev.necauqua.mods.subpocket.Subpocket.ns;
 import static java.lang.String.format;
+import static net.minecraft.client.renderer.GlStateManager.LogicOp.XOR;
 import static net.minecraft.client.renderer.OpenGlHelper.*;
 import static net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX;
+import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 
-public class GuiSubpocket extends GuiContainer {
+@OnlyIn(Dist.CLIENT)
+public final class GuiSubpocket extends GuiContainer {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation(MODID, "textures/gui/subpocket.png");
+    private static final ResourceLocation TEXTURE = ns("textures/gui/subpocket.png");
 
     private static final int X_OFF = 35, Y_OFF = 8;
 
@@ -56,9 +57,9 @@ public class GuiSubpocket extends GuiContainer {
     private final ISubpocket storage;
 
     private float localX = 0, localY = 0;
-    private int scale = 1;
+    private float scale = 1;
     private boolean mouseInside = false;
-    private boolean usePixelPicking = framebufferSupported && !Config.disablePixelPicking;
+    private boolean usePixelPicking = isFramebufferEnabled() && !Config.Client.disablePixelPicking;
 
     private ISubpocketStack underMouse = SubpocketStackImpl.EMPTY;
     private int underMouseIndex = -1;
@@ -83,76 +84,43 @@ public class GuiSubpocket extends GuiContainer {
     }
 
     @Override
+    public void setWorldAndResolution(Minecraft mc, int width, int height) {
+        super.setWorldAndResolution(mc, width, height);
+        float newScale = (float) mc.mainWindow.getGuiScaleFactor();
+        if (newScale != scale) {
+            scale = newScale;
+            framebuffer.createBindFramebuffer((int) (WIDTH * scale), (int) (HEIGHT * scale));
+        }
+    }
+
+    @Override
     public void initGui() {
         super.initGui();
         guiLeft -= ARMOR_OFFSET;
     }
 
     @Override
-    public void setWorldAndResolution(Minecraft mc, int width, int height) {
-        super.setWorldAndResolution(mc, width, height);
-        int newScale = new ScaledResolution(mc).getScaleFactor();
-        if (newScale != scale) {
-            scale = newScale;
-            framebuffer.createBindFramebuffer(WIDTH * scale, HEIGHT * scale);
-        }
-    }
-
-    @Override
-    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         // get global (not downscaled) mouse pos and 'downscale' it to floats, keeping precision
-        localX = Mouse.getX() / (float) scale - guiLeft - X_OFF;
-        localY = (mc.displayHeight - Mouse.getY() - 1) / (float) scale - guiTop - Y_OFF;
+        localX = (float) (mc.mouseHelper.getMouseX() / scale - guiLeft - X_OFF);
+        localY = (float) (mc.mouseHelper.getMouseY() / scale - guiTop - Y_OFF);
 
         // exclude edges here because they behave weirdly sometimes
         mouseInside = localX > 0 && localX < WIDTH && localY > 0 && localY < HEIGHT;
 
-        debug = framebufferSupported && Keyboard.isKeyDown(41);
+        debug = isFramebufferEnabled() && glfwGetKey(mc.mainWindow.getHandle(), GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS;
 
-        drawDefaultBackground();
-
-        super.drawScreen(mouseX, mouseY, partialTicks);
-
-        if (debug) {
-            String[] debug = {
-                    "§fdebug:",
-                    format("§f  color under mouse: [%d, %d, %d]", underMouseColor[0] & 0xff, underMouseColor[1] & 0xff, underMouseColor[2] & 0xff),
-                    "§f  computed index: " + underMouseIndex,
-                    underMouse.isEmpty() ? "" : format("§f  hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY()),
-            };
-            for (int i = 0; i < debug.length; i++) {
-                fontRenderer.drawStringWithShadow(debug[i],
-                        guiLeft + 28,
-                        guiTop - fontRenderer.FONT_HEIGHT * (debug.length - i + 1),
-                        0);
-            }
+        if (isFramebufferEnabled() && !Config.Client.disablePixelPicking) {
+            int leftAltState = glfwGetKey(mc.mainWindow.getHandle(), GLFW_KEY_LEFT_ALT);
+            int rightAltState = glfwGetKey(mc.mainWindow.getHandle(), GLFW_KEY_RIGHT_ALT);
+            usePixelPicking = leftAltState != GLFW_PRESS && rightAltState != GLFW_PRESS;
         }
 
-        renderHoveredToolTip(mouseX, mouseY);
-
-        if (underMouse.isEmpty() || !mc.player.inventory.getItemStack().isEmpty()) {
-            return;
-        }
-
-        ItemStack ref = underMouse.getRef();
-        List<String> tooltip = getItemToolTip(ref);
-
-        if (stackSizeMode != StackSizeMode.ALL || underMouse.getCount().compareTo(ISubpocketStack.THOUSAND) >= 0) {
-            tooltip.add(1, I18n.format("gui.subpocket:it.quantity", underMouse.getCount().toString()));
-        }
-        FontRenderer font = ref.getItem().getFontRenderer(ref);
-        GuiUtils.drawHoveringText(ref, tooltip, mouseX + 12, mouseY, width, height, -1, font == null ? fontRenderer : font);
-    }
-
-    @Override
-    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
-        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         mc.getTextureManager().bindTexture(TEXTURE);
         drawTexturedModalRect(guiLeft, guiTop, 0, 0, xSize, ySize);
 
         // left it for fun, this is a "debug mode", heh (although it did help me a lot)
-        if (framebufferSupported && debug) {
+        if (debug && isFramebufferEnabled()) {
             framebuffer.bindFramebufferTexture();
             Tessellator tess = Tessellator.getInstance();
             BufferBuilder bb = tess.getBuffer();
@@ -171,24 +139,23 @@ public class GuiSubpocket extends GuiContainer {
             underMouse = dragging;
             underMouseIndex = draggingIndex;
         } else {
-            underMouse = SubpocketStackImpl.EMPTY;
-            underMouseIndex = -1;
+            resetUnderMouseStack();
         }
 
         RenderHelper.enableGUIStandardItemLighting();
-        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-        GlStateManager.enableRescaleNormal();
-        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0F, 240.0F);
-        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-        GlStateManager.enableDepth();
+        OpenGlHelper.glMultiTexCoord2f(OpenGlHelper.GL_TEXTURE1, 240.0F, 240.0F);
+        GlStateManager.color4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.enableDepthTest();
 
         glEnable(GL_SCISSOR_TEST); // yay scissors!
         glScissor(
-                (guiLeft + X_OFF) * scale, mc.displayHeight - (guiTop + Y_OFF + HEIGHT) * scale,
-                WIDTH * scale, HEIGHT * scale
+                (int) ((guiLeft + X_OFF) * scale),
+                (int) (mc.mainWindow.getHeight() - (guiTop + Y_OFF + HEIGHT) * scale),
+                (int) (WIDTH * scale),
+                (int) (HEIGHT * scale)
         );
 
-        if (framebufferSupported && debug) {
+        if (isFramebufferEnabled() && debug) {
             if (!underMouse.isEmpty() && underMouse != dragging) {
                 drawStack(underMouse, true);
             }
@@ -202,7 +169,7 @@ public class GuiSubpocket extends GuiContainer {
 
         if (draggingIndex != -1) {
             GlStateManager.pushMatrix();
-            GlStateManager.translate( // custom movement for smoothness as here we are in render tick
+            GlStateManager.translatef( // custom movement for smoothness as here we are in render tick
                     MathHelper.clamp(localX + draggingOffX, draggingOffX, WIDTH + draggingOffX),
                     MathHelper.clamp(localY + draggingOffY, draggingOffY, HEIGHT + draggingOffY),
                     0
@@ -216,15 +183,46 @@ public class GuiSubpocket extends GuiContainer {
         RenderHelper.disableStandardItemLighting();
     }
 
+    public void render(int mouseX, int mouseY, float partialTicks) {
+        drawDefaultBackground();
+        super.render(mouseX, mouseY, partialTicks);
+
+        if (debug && mouseInside) {
+            List<String> lines = new ArrayList<>();
+            lines.add("§l§5debug:");
+            lines.add(format("scale factor: %.2f", scale));
+            lines.add(format("local mouse coords: [%.2f, %.2f]", localX, localY));
+            lines.add(format("color under mouse: [%d, %d, %d]", underMouseColor[0] & 0xff, underMouseColor[1] & 0xff, underMouseColor[2] & 0xff));
+            lines.add(format("computed index: %d", underMouseIndex));
+            if (!underMouse.isEmpty()) {
+                lines.add(format("§f  hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY()));
+            }
+            GuiUtils.drawHoveringText(lines, X_OFF - 10, HEIGHT + Y_OFF + 20, width, height, -1, fontRenderer);
+        }
+
+        renderHoveredToolTip(mouseX, mouseY);
+
+        if (underMouse.isEmpty() || !mc.player.inventory.getItemStack().isEmpty()) {
+            return;
+        }
+
+        ItemStack ref = underMouse.getRef();
+        List<String> tooltip = getItemToolTip(ref);
+
+        if (underMouse.getCount().compareTo(BigInteger.ONE) > 0) {
+            tooltip.add(1, I18n.format("gui.subpocket:it.quantity",
+                    isShiftKeyDown() ? underMouse.getCount().toString() : underMouse.getShortNumberString()));
+        }
+        FontRenderer font = ref.getItem().getFontRenderer(ref);
+        GuiUtils.drawHoveringText(ref, tooltip, mouseX + 12, mouseY, width, height, -1, font != null ? font : fontRenderer);
+    }
+
     private void drawStack(ISubpocketStack stack, boolean translate) {
         ItemStack ref = stack.getRef();
 
-        zLevel = 100.0F;
-        itemRender.zLevel = 100.0F;
-
         // push-translate-renderAt00-pop is so that we can render at float coords
         GlStateManager.pushMatrix();
-        GlStateManager.translate(
+        GlStateManager.translatef(
                 guiLeft + X_OFF + (translate ? stack.getX() : 0),
                 guiTop + Y_OFF + (translate ? stack.getY() : 0),
                 0
@@ -232,11 +230,11 @@ public class GuiSubpocket extends GuiContainer {
 
         itemRender.renderItemAndEffectIntoGUI(mc.player, ref, 0, 0);
         if (!usePixelPicking && stack == underMouse) {
-            glEnable(GL_COLOR_LOGIC_OP);
-            glLogicOp(GL_XOR);
+            GlStateManager.enableColorLogic();
+            GlStateManager.logicOp(XOR);
             mc.getTextureManager().bindTexture(TEXTURE);
             drawTexturedModalRect(-1, -1, 203, 0, 18, 18);
-            glDisable(GL_COLOR_LOGIC_OP);
+            GlStateManager.disableColorLogic();
         }
         itemRender.renderItemOverlayIntoGUI(fontRenderer, ref, 0, 0,
                 stackSizeMode == StackSizeMode.ALL || stackSizeMode == StackSizeMode.HOVERED && stack == underMouse ? stack.getShortNumberString() : "");
@@ -250,84 +248,71 @@ public class GuiSubpocket extends GuiContainer {
 
         // ^ makes it so that we can render 3d items (like itemblocks) as 2d sprites on top of each other
         // so that they never cross or zfight each other
-
-        itemRender.zLevel = 0.0F;
-        zLevel = 0.0F;
     }
 
     @Override
-    public void handleMouseInput() throws IOException {
-        super.handleMouseInput();
-        int dwheel = Mouse.getEventDWheel();
-        if (dwheel != 0) {
-            if (!mouseInside) {
-                return;
-            }
-            ClickState click = new ClickState(
-                    dwheel > 0 ? 4 : 5,
-                    isShiftKeyDown(), isCtrlKeyDown(), isAltKeyDown()
-            );
-            container.processClick(localX, localY, click, underMouseIndex);
-            Network.sendClickToServer(localX, localY, underMouseIndex, click);
-
-            // fix for processClick calling elevate which changes index (there can be multiple mouse events per
-            // render tick, so findStackUnderMouse might not be called to fix that yet)
-            if (!underMouse.isEmpty()) {
-                underMouseIndex = storage.getStacksView().indexOf(underMouse);
-            }
+    public boolean mouseScrolled(double dwheel) {
+        if (dwheel == 0.0 || !mouseInside) {
+            return false;
         }
-    }
+        ClickState click = new ClickState(
+                dwheel > 0.0 ? 4 : 5,
+                isShiftKeyDown(), isCtrlKeyDown(), isAltKeyDown()
+        );
+        container.processClick(localX, localY, click, underMouseIndex);
+        Network.sendClickToServer(localX, localY, underMouseIndex, click);
 
-    @Override
-    public void handleKeyboardInput() throws IOException {
-        super.handleKeyboardInput();
-
-        switch (Keyboard.getEventKey()) {
-            case 56:
-            case 184: // alt
-                if (framebufferSupported && !Config.disablePixelPicking) {
-                    usePixelPicking = !Keyboard.getEventKeyState();
-                }
-                break;
-            case 41: // ~
-                debug = Keyboard.getEventKeyState();
-                break;
-            case 15: // tab
-                if (!Keyboard.getEventKeyState()) {
-                    stackSizeMode = StackSizeMode.values()[(stackSizeMode.ordinal() + 1) % StackSizeMode.values().length];
-                    Network.sendSetStackSizeModeToServer(stackSizeMode);
-                }
+        // fix for processClick calling elevate which changes index (there can be multiple mouse events per
+        // render tick, so findStackUnderMouse might not be called to fix that yet)
+        if (!underMouse.isEmpty()) {
+            underMouseIndex = storage.getStacksView().indexOf(underMouse);
         }
+        return false;
     }
 
     @Override
-    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+    public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (super.keyPressed(key, scanCode, modifiers)) {
+            return true;
+        }
+        if (key != GLFW_KEY_TAB) {
+            return false;
+        }
+        stackSizeMode = StackSizeMode.values()[(stackSizeMode.ordinal() + 1) % StackSizeMode.values().length];
+        Network.sendSetStackSizeModeToServer(stackSizeMode);
+        return true;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int mouseButton) {
         if (!mouseInside) {
             super.mouseClicked(mouseX, mouseY, mouseButton);
-            return;
+            return false;
         }
         if (draggingIndex != -1 || underMouse.isEmpty() || !mc.player.inventory.getItemStack().isEmpty()) {
-            return;
+            return false;
         }
         dragging = underMouse;
         draggingIndex = underMouseIndex;
         draggingOffX = underMouse.getX() - localX;
         draggingOffY = underMouse.getY() - localY;
+        return true;
     }
 
     @Override
-    protected void mouseClickMove(int mouseX, int mouseY, int button, long time) {
+    public boolean mouseDragged(double mouseX, double mouseY, int mouseButton, double dragX, double dragY) {
         if (!mouseInside) {
-            super.mouseClickMove(mouseX, mouseY, button, time);
-            return;
+            return super.mouseDragged(mouseX, mouseY, mouseButton, dragX, dragY);
         }
         if (draggingIndex != -1) {
             didDrag = true;
+            return true;
         }
+        return false;
     }
 
     @Override
-    protected void mouseReleased(int mouseX, int mouseY, int button) {
+    public boolean mouseReleased(double mouseX, double mouseY, int mouseButton) {
         if (didDrag) {
             float x = MathHelper.clamp(localX + draggingOffX, draggingOffX, WIDTH + draggingOffX);
             float y = MathHelper.clamp(localY + draggingOffY, draggingOffY, HEIGHT + draggingOffY);
@@ -338,23 +323,31 @@ public class GuiSubpocket extends GuiContainer {
             // mapping the button index to a more logical one I guess..
             // and so that 0-byte is no click
             ClickState click = new ClickState(
-                    button == 0 ? 1 : button == 1 ? 3 : button,
+                    mouseButton == 0 ? 1 : mouseButton == 1 ? 3 : mouseButton,
                     isShiftKeyDown(), isCtrlKeyDown(), isAltKeyDown()
             );
+            // apparently it differs by 0.5 sometimes causing inconsistent item placement
+            float localX = (float) (mouseX - guiLeft - X_OFF);
+            float localY = (float) (mouseY - guiTop - Y_OFF);
             container.processClick(localX, localY, click, underMouseIndex);
             Network.sendClickToServer(localX, localY, underMouseIndex, click);
         } else {
-            super.mouseReleased(mouseX, mouseY, button);
+            return super.mouseReleased(mouseX, mouseY, mouseButton);
         }
         // just reset it regardless
         draggingIndex = -1;
         dragging = SubpocketStackImpl.EMPTY;
+        return true;
+    }
+
+    private void resetUnderMouseStack() {
+        underMouse = SubpocketStackImpl.EMPTY;
+        underMouseIndex = -1;
     }
 
     private void findStackUnderMouse() {
         if (!mouseInside) {
-            underMouse = SubpocketStackImpl.EMPTY;
-            underMouseIndex = -1;
+            resetUnderMouseStack();
             return;
         }
         if (!usePixelPicking) {
@@ -367,8 +360,7 @@ public class GuiSubpocket extends GuiContainer {
                     return;
                 }
             }
-            underMouse = SubpocketStackImpl.EMPTY;
-            underMouseIndex = -1;
+            resetUnderMouseStack();
             return;
         }
         framebuffer.bindFramebuffer(true);
@@ -387,10 +379,10 @@ public class GuiSubpocket extends GuiContainer {
         );
         GlStateManager.matrixMode(GL_MODELVIEW);
         GlStateManager.loadIdentity();
-        GlStateManager.translate(0.0F, 0.0F, -2000.0F);
-        // ^ 6 lines copied and tweaked from EntityRenderer#setupOverlayRendering
+        GlStateManager.translatef(0.0F, 0.0F, -2000.0F);
+        // ^ almost MainWindow#setupOverlayRendering but ortho width/height are changed to ours
 
-        GlStateManager.scale(scale, scale, 1); // uh-oh
+        GlStateManager.scalef(scale, scale, 1); // uh-oh
 
         // here i use old and deprecated texture combiners to get alpha from the texture,
         // but set own RGB part for pixel-picking.
@@ -408,11 +400,8 @@ public class GuiSubpocket extends GuiContainer {
         // since all i need is their silhouettes with CONSTANT indexing color(and simple on/off alpha)
         // this works only because GlStateManager exists and sadly mods are not forced to use it
         GlStateManager.disableBlend();
-        GlStateManager.blendState.blend.currentState = true;
+        GlStateManager.BLEND.blend.currentState = true;
         // but still this hack is second best thing is did after clearing depth buffer one
-
-        zLevel = 100.0F;
-        itemRender.zLevel = 100.0F;
 
         List<ISubpocketStack> stacksView = storage.getStacksView();
         for (int i = 0; i < stacksView.size(); i++) {
@@ -424,11 +413,11 @@ public class GuiSubpocket extends GuiContainer {
                     .put((i & 0xff) / 255.0F)
                     .put(1.0F)
                     .rewind();
-            glTexEnv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, inputColor);
+            glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, inputColor);
 
             // float coords same as in drawStack
             GlStateManager.pushMatrix();
-            GlStateManager.translate(stack.getX(), stack.getY(), 0);
+            GlStateManager.translatef(stack.getX(), stack.getY(), 0);
             itemRender.renderItemAndEffectIntoGUI(mc.player, stack.getRef(), 0, 0);
             GlStateManager.popMatrix();
 
@@ -436,11 +425,9 @@ public class GuiSubpocket extends GuiContainer {
             // uses depth-hacking to work as it works and without depth it breaks
             GlStateManager.clear(GL_DEPTH_BUFFER_BIT);
         }
-        itemRender.zLevel = 0.0F;
-        zLevel = 0.0F;
 
         // reset back blending hack
-        GlStateManager.blendState.blend.currentState = false;
+        GlStateManager.BLEND.blend.currentState = false;
         GlStateManager.enableBlend();
 
         // reset back texture combiner
@@ -454,7 +441,7 @@ public class GuiSubpocket extends GuiContainer {
         );
 
         mc.getFramebuffer().bindFramebuffer(true);
-        mc.entityRenderer.setupOverlayRendering();
+        mc.mainWindow.setupOverlayRendering();
 
         outputColor.get(underMouseColor).rewind();
 
@@ -463,11 +450,9 @@ public class GuiSubpocket extends GuiContainer {
                 | underMouseColor[2] & 0xff;
 
         if (picked != 0xFFFFFF) {
-            // when we pick the white background
             underMouse = storage.get(underMouseIndex = picked);
-        } else {
-            underMouseIndex = -1;
-            underMouse = SubpocketStackImpl.EMPTY;
+        } else { // when we pick the white background
+            resetUnderMouseStack();
         }
     }
 }

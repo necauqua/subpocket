@@ -5,9 +5,9 @@
 
 package dev.necauqua.mods.subpocket.impl;
 
-import dev.necauqua.mods.subpocket.api.ISubpocketStack;
+import dev.necauqua.mods.subpocket.ContainerSubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
-import dev.necauqua.mods.subpocket.gui.ContainerSubpocket;
+import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -135,7 +135,7 @@ public final class SubpocketStackImpl implements ISubpocketStack {
     public NBTTagCompound serializeNBT() {
         NBTTagCompound nbt = new NBTTagCompound();
         NBTTagCompound refNbt = new NBTTagCompound();
-        ref.writeToNBT(refNbt);
+        ref.write(refNbt);
         refNbt.removeTag("Count"); // eh, but why to store it, huh
         nbt.setTag("ref", refNbt);
         nbt.setByteArray("count", count.toByteArray());
@@ -146,10 +146,12 @@ public final class SubpocketStackImpl implements ISubpocketStack {
 
     @Override
     public void deserializeNBT(NBTTagCompound nbt) {
-        NBTTagCompound refNbt = nbt.getCompoundTag("ref");
+        NBTTagCompound refNbt = nbt.getCompound("ref");
         refNbt.setByte("Count", (byte) 1); // as above      ^
-        ref = new ItemStack(refNbt);
-        count = nbt.hasKey("count", 7) ? new BigInteger(nbt.getByteArray("count")) : BigInteger.ONE;
+        ref = ItemStack.read(refNbt);
+        count = nbt.hasKey("count") && nbt.getTagId("count") == 7 ?
+                new BigInteger(nbt.getByteArray("count")) :
+                BigInteger.ONE;
         setPos(nbt.getFloat("x"), nbt.getFloat("y"));
     }
 }

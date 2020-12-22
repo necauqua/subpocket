@@ -22,10 +22,11 @@ import java.util.List;
  * public static Capability&lt;ISubpocket&gt; SUBPOCKET_CAPABILITY;
  *
  * void method(EntityPlayer player) {
- *     if(SUBPOCKET_STORAGE_CAPABILITY != null) { // if the mod was loaded
- *         ISubpocket storage = player.getCapability(SUBPOCKET_STORAGE_CAPABILITY, null);
- *         // if player doesn't have it, something gone so wrong that NPE here would be fine
- *         doStuffWith(storage);
+ *     if (SUBPOCKET_STORAGE_CAPABILITY != null) { // if the mod was loaded
+ *         player.getCapability(SUBPOCKET_STORAGE_CAPABILITY)
+ *             .ifPresent(storage -&gt; {
+ *                 doStuffWith(storage);
+ *             });
  *     }
  * }
  * </pre>

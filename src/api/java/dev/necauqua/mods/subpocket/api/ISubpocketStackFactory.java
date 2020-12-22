@@ -63,9 +63,8 @@ public interface ISubpocketStackFactory {
     @Nonnull
     default ISubpocketStack create(ItemStack ref, BigInteger count) {
         int a = Objects.hashCode(ref.getItem().getRegistryName());
-        int b = ref.getMetadata();
-        int c = Objects.hashCode(ref.getTagCompound());
-        Random rand = new Random(961 * a + 31 * b + c); // meh
+        int b = Objects.hashCode(ref.getTag());
+        Random rand = new Random(31L * a + b); // meh
         int x = rand.nextInt(160 - 18) + 1;
         int y = rand.nextInt(70 - 18) + 1;
         return create(ref, count, x, y);

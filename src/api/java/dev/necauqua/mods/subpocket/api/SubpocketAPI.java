@@ -8,7 +8,7 @@ package dev.necauqua.mods.subpocket.api;
 public final class SubpocketAPI {
 
     /**
-     * Set at mods pre-init stage.
+     * Set at subpocket instance creation time.
      **/
     public static ISubpocketStackFactory stackFactory = null;
 }

@@ -1,0 +1,19 @@
+
+modLoader='javafml'
+loaderVersion='[25,)'
+issueTrackerURL='https://github.com/necauqua/subpocket/issues'
+
+[[mods]]
+modId='subpocket'
+version='${file.jarVersion}'
+displayName='subpocket'
+updateJSONURL='https://raw.githubusercontent.com/wiki/necauqua/subpocket/updates.json'
+displayURL='https://www.curseforge.com/minecraft/mc-mods/subpocket'
+logoFile='logo.png'
+credits='People from my discord who keep me entertained and remind to have a level of productivity that is not zero'
+authors='necauqua'
+description='''
+This mod adds almost for free some INFININE (omg) storage to the game.
+
+Butt beware..
+'''

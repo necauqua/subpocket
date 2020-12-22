@@ -8,14 +8,15 @@ package dev.necauqua.mods.subpocket.impl;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import dev.necauqua.mods.subpocket.CapabilitySubpocket;
-import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
+import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.INBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.EnumFacing;
 import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.util.LazyOptional;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -25,11 +26,23 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-public class SubpocketImpl implements ISubpocket {
+public final class SubpocketImpl implements ISubpocket {
+
+    private LazyOptional<ISubpocket> container;
 
     private LinkedList<ISubpocketStack> stacks = new LinkedList<>();
     private boolean unlocked = false;
     private StackSizeMode stackSizeMode = StackSizeMode.ALL;
+
+    public SubpocketImpl() {
+        onInvalidated(LazyOptional.empty());
+    }
+
+    private void onInvalidated(LazyOptional<ISubpocket> invalid) {
+        LazyOptional<ISubpocket> newContainer = LazyOptional.of(() -> this);
+        newContainer.addListener(this::onInvalidated);
+        container = newContainer;
+    }
 
     @Override
     public boolean isUnlocked() {
@@ -148,13 +161,14 @@ public class SubpocketImpl implements ISubpocket {
         stacks = Lists.newLinkedList(storage);
         stacks.forEach(s -> s.setBoundStorage(this));
         unlocked = storage.isUnlocked();
+        stackSizeMode = storage.getStackSizeMode();
     }
 
     @Override
     public NBTTagCompound serializeNBT() {
         NBTTagCompound nbt = new NBTTagCompound();
         NBTTagList list = new NBTTagList();
-        stacks.forEach(s -> list.appendTag(s.serializeNBT()));
+        stacks.forEach(s -> list.add(s.serializeNBT()));
         nbt.setTag("storage", list);
         nbt.setBoolean("unlocked", unlocked);
         nbt.setByte("stackSizeMode", (byte) stackSizeMode.ordinal());
@@ -166,14 +180,14 @@ public class SubpocketImpl implements ISubpocket {
         clear();
         unlocked = nbt.getBoolean("unlocked");
         stackSizeMode = StackSizeMode.values()[nbt.getByte("stackSizeMode") % StackSizeMode.values().length];
-        NBTBase listBase = nbt.getTag("storage");
+        INBTBase listBase = nbt.getTag("storage");
         if (!(listBase instanceof NBTTagList)) {
             return;
         }
         NBTTagList list = (NBTTagList) listBase;
-        for (int i = 0; i < list.tagCount(); i++) {
+        for (int i = 0; i < list.size(); i++) {
             ISubpocketStack stack = SubpocketStackFactoryImpl.INSTANCE
-                    .create(list.getCompoundTagAt(i));
+                    .create(list.getCompound(i));
             if (stack.isEmpty()) {
                 continue; // in case we had some kind of malformed nbt, idk
             }
@@ -183,13 +197,9 @@ public class SubpocketImpl implements ISubpocket {
     }
 
     @Override
-    public boolean hasCapability(@Nonnull Capability<?> capability, @Nullable EnumFacing facing) {
-        return capability == CapabilitySubpocket.IT;
-    }
-
-    @Nullable
-    @Override
-    public <T> T getCapability(@Nonnull Capability<T> capability, @Nullable EnumFacing facing) {
-        return capability == CapabilitySubpocket.IT ? CapabilitySubpocket.IT.cast(this) : null;
+    public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> capability, @Nullable EnumFacing facing) {
+        return capability == CapabilitySubpocket.INSTANCE ?
+                container.cast() :
+                LazyOptional.empty();
     }
 }

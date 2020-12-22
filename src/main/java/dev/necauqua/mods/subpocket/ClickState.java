@@ -3,7 +3,7 @@
  * Licensed under MIT, see the LICENSE file for details.
  */
 
-package dev.necauqua.mods.subpocket.gui;
+package dev.necauqua.mods.subpocket;
 
 public final class ClickState {
     private static final int BUTTON_BITS = 0b00000111;

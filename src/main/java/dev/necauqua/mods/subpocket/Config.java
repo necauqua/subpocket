@@ -1,29 +1,103 @@
-/*
- * Copyright (c) 2017-2020 Anton Bulakh <self@necauqua.dev>
- * Licensed under MIT, see the LICENSE file for details.
- */
-
 package dev.necauqua.mods.subpocket;
 
-import net.minecraftforge.common.config.Config.Comment;
-import net.minecraftforge.common.config.Config.LangKey;
-import net.minecraftforge.common.config.Config.Name;
+import com.electronwill.nightconfig.core.CommentedConfig;
+import com.google.gson.stream.JsonReader;
+import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.config.ModConfig.ModConfigEvent;
 
-@net.minecraftforge.common.config.Config(modid = Subpocket.MODID)
-public class Config {
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
 
-    @Comment("Block usage of ender chests when subpocket is active?")
-    @Name("block_ender_chests")
-    @LangKey("config.subpocket:block_ender_chests")
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
+import static dev.necauqua.mods.subpocket.Subpocket.MODID;
+import static net.minecraftforge.fml.config.ModConfig.Type.CLIENT;
+import static net.minecraftforge.fml.config.ModConfig.Type.SERVER;
+
+@EventBusSubscriber(modid = MODID, bus = Bus.MOD)
+public final class Config {
+
+    // clientside
+    public static final class Client {
+        public static boolean disablePixelPicking = false;
+    }
+
+    // serverside and synced to client
     public static boolean blockEnderChests = true;
+    public static boolean allowBreakingUnbreakable = true;
+    public static boolean subspatialKeyFrozen = true;
+    public static boolean subspatialKeyNoDespawn = true;
 
-    @Comment("Allow the subspatial key to break unbreakable blocks?")
-    @Name("allow_breaking_unbreakable")
-    @LangKey("config.subpocket:allow_breaking_unbreakable")
-    public static boolean allowBreakingUnbreakableBlocks = true;
+    public static void init() {
+        Map<String, String> strings = readDefaultLocaleStrings();
+        ModLoadingContext context = ModLoadingContext.get();
+        context.registerConfig(CLIENT, define(Config.Client.class, strings));
+        context.registerConfig(SERVER, define(Config.class, strings));
+    }
 
-    @Comment("Disable the pixel picking of items? (alt-mode always on)")
-    @Name("disable_pixel_picking")
-    @LangKey("config.subpocket:disable_pixel_picking")
-    public static boolean disablePixelPicking = false;
+    @SubscribeEvent
+    public static void on(ModConfigEvent e) { // on both loading and reloading events, huh
+        ModConfig config = e.getConfig();
+        switch (config.getType()) {
+            case CLIENT:
+                load(Client.class, config.getConfigData());
+                break;
+            case SERVER:
+                load(Config.class, config.getConfigData());
+                break;
+        }
+    }
+
+    private static void load(Class<?> holder, CommentedConfig config) {
+        try {
+            for (Field field : holder.getFields()) {
+                field.set(null, config.get(LOWER_CAMEL.to(LOWER_UNDERSCORE, field.getName())));
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+    }
+
+    private static ForgeConfigSpec define(Class<?> holder, Map<String, String> strings) {
+        try {
+            ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
+            for (Field field : holder.getFields()) {
+                String name = LOWER_CAMEL.to(LOWER_UNDERSCORE, field.getName());
+                builder.comment(strings.get("config." + MODID + ":" + name + ".tooltip"))
+                        .translation("config." + MODID + ":subspatial_key_no_despawn")
+                        .define(name, field.get(null));
+            }
+            return builder.build();
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    // yes I am adapting those now unused .tooltip strings so I wont have
+    // to duplicate (well, no longer, but whatever) them in config comments
+    private static Map<String, String> readDefaultLocaleStrings() {
+        try (InputStream lang = Subpocket.class.getResourceAsStream("/assets/subpocket/lang/en_us.json")) {
+            Map<String, String> strings = new HashMap<>();
+            if (lang == null) {
+                throw new IOException(); // jump to catch
+            }
+            JsonReader reader = new JsonReader(new InputStreamReader(lang));
+            reader.beginObject();
+            while (reader.hasNext()) {
+                strings.put(reader.nextName(), reader.nextString());
+            }
+            reader.endObject();
+            return strings;
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read the default localization from mod's JAR file");
+        }
+    }
 }

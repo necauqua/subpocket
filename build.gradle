@@ -5,16 +5,17 @@ buildscript {
         maven { url = 'https://maven.necauqua.dev/' }
     }
     dependencies {
-        classpath 'dev.necauqua:necauqua-mod:0.2.0'
+        classpath 'dev.necauqua:necauqua-mod:0.3.1'
     }
 }
 
 apply plugin: 'dev.necauqua.nmod'
 
+sourceSets { api }
+
 nmod {
     curseID = '275425'
-    version = '1.12-2.0.0.1'
-    forge = '1.12.2-14.23.5.2854'
-    mappings = '20171003-1.12'
-    coremod = 'dev.necauqua.mods.subpocket.handlers.KeyBlockBreakingHandler$ForgeHooksTransformer'
+    version = '1.13-3.0.0.0'
+    forge = '1.13.2-25.0.219'
+    mappings = '20180921-1.13'
 }

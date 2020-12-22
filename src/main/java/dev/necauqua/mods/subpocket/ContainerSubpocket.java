@@ -3,23 +3,20 @@
  * Licensed under MIT, see the LICENSE file for details.
  */
 
-package dev.necauqua.mods.subpocket.gui;
+package dev.necauqua.mods.subpocket;
 
-import dev.necauqua.mods.subpocket.CapabilitySubpocket;
-import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
-import dev.necauqua.mods.subpocket.handlers.SyncHandler;
+import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.impl.SubpocketStackFactoryImpl;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.*;
-import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.MathHelper;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -27,11 +24,17 @@ import java.math.BigInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-public class ContainerSubpocket extends Container {
+public final class ContainerSubpocket extends Container {
     public static final int WIDTH = 160, HEIGHT = 70;
 
     private static final EntityEquipmentSlot[] ARMOR_SLOTS = new EntityEquipmentSlot[]{
             EntityEquipmentSlot.HEAD, EntityEquipmentSlot.CHEST, EntityEquipmentSlot.LEGS, EntityEquipmentSlot.FEET
+    };
+    private static final String[] EMPTY_ARMOR_SLOT_NAMES = new String[]{
+            "item/empty_armor_slot_boots",
+            "item/empty_armor_slot_leggings",
+            "item/empty_armor_slot_chestplate",
+            "item/empty_armor_slot_helmet"
     };
 
     private final EntityPlayer player;
@@ -42,49 +45,44 @@ public class ContainerSubpocket extends Container {
         storage = CapabilitySubpocket.get(player);
 
         // sync on every open
-        SyncHandler.sync(player);
+        Network.syncToClient(player);
 
         InventoryPlayer playerInv = player.inventory;
         for (int x = 0; x < 9; ++x) { // hotbar
-            addSlotToContainer(new Slot(playerInv, x, x * 18 + 35, 142));
+            addSlot(new Slot(playerInv, x, x * 18 + 35, 142));
         }
         for (int y = 0; y < 3; ++y) { // main inventory
             for (int x = 0; x < 9; ++x) {
-                addSlotToContainer(new Slot(playerInv, y * 9 + x + 9, x * 18 + 35, y * 18 + 84));
+                addSlot(new Slot(playerInv, y * 9 + x + 9, x * 18 + 35, y * 18 + 84));
             }
         }
         for (int k = 0; k < 4; ++k) { // armor slots
             EntityEquipmentSlot armorType = ARMOR_SLOTS[k];
-            addSlotToContainer(new Slot(playerInv, 39 - k, 8, k * 18 + 26) { // yay for ArmorSlot class which
-                // DOES NOT EXIST !!1!
+            addSlot(new Slot(playerInv, 39 - k, 8, k * 18 + 26) { // yay for non-existent ArmorSlot class
                 public int getSlotStackLimit() {
                     return 1;
                 }
 
                 public boolean isItemValid(ItemStack stack) {
-                    return stack.getItem().isValidArmor(stack, armorType, player);
+                    return stack.canEquip(armorType, player);
                 }
 
                 public boolean canTakeStack(EntityPlayer player) {
-                    ItemStack itemstack = getStack();
+                    ItemStack itemstack = this.getStack();
                     return itemstack.isEmpty()
                             || player.isCreative()
-                            || !EnchantmentHelper.hasBindingCurse(itemstack)
-                            && super.canTakeStack(player);
+                            || !EnchantmentHelper.hasBindingCurse(itemstack);
                 }
 
-                @SideOnly(Side.CLIENT)
+                @OnlyIn(Dist.CLIENT)
                 public String getSlotTexture() {
-                    return ItemArmor.EMPTY_SLOT_NAMES[armorType.getIndex()];
+                    return EMPTY_ARMOR_SLOT_NAMES[armorType.getIndex()];
                 }
             });
         }
-        addSlotToContainer(new Slot(playerInv, 40, 8, 102) { // shield slot
-            @SideOnly(Side.CLIENT)
-            public String getSlotTexture() {
-                return "minecraft:items/empty_armor_slot_shield";
-            }
-        });
+        Slot shieldSlot = new Slot(playerInv, 40, 8, 102);
+        shieldSlot.setBackgroundName("item/empty_armor_slot_shield");
+        addSlot(shieldSlot);
     }
 
     public ISubpocket getStorage() {
@@ -120,21 +118,21 @@ public class ContainerSubpocket extends Container {
         EntityEquipmentSlot slot = EntityLiving.getSlotForItemStack(retrieved);
         if (player.getItemStackFromSlot(slot).isEmpty()) {
             player.setItemStackToSlot(slot, retrieved);
-        } else {
-            boolean stored = player.capabilities.isCreativeMode; // this! is! stupid!
-            player.capabilities.isCreativeMode = false;          // ^
-            boolean flag = player.inventory.addItemStackToInventory(retrieved);
-            player.capabilities.isCreativeMode = stored;         //             ^
-            if (!flag) {
-                flag = stack.isEmpty(); // welp.. at least i documented such case (also reusing flag, omg how smart)
-                stack.setCount(stack.getCount().add(BigInteger.valueOf(retrieved.getCount())));
-                if (flag) {
-                    storage.add(stack); // even though stack was emptied, it still stores its position, so this works
-                }
-                return false;
-            }
+            return true;
         }
-        return true;
+        boolean stored = player.abilities.isCreativeMode; // this! is! stupid!
+        player.abilities.isCreativeMode = false;          // ^
+        boolean flag = player.inventory.addItemStackToInventory(retrieved);
+        player.abilities.isCreativeMode = stored;         //                ^
+        if (flag) {
+            return true;
+        }
+        flag = stack.isEmpty(); // welp.. at least i documented such case (also reusing flag, omg how smart)
+        stack.setCount(stack.getCount().add(BigInteger.valueOf(retrieved.getCount())));
+        if (flag) {
+            storage.add(stack); // even though stack was emptied, it still stores its position, so this works
+        }
+        return false;
     }
 
     public void processClick(float mx, float my, ClickState click, int index) {
@@ -155,7 +153,7 @@ public class ContainerSubpocket extends Container {
                     break;
                 }
                 if (click.isCtrl()) {
-                    while (tryToAddToPlayer(hovered, hovered.retrieveMax())) {}
+                    while (tryToAddToPlayer(hovered, hovered.retrieveMax()));
                     break;
                 }
                 if (!click.isShift()) {
@@ -172,18 +170,18 @@ public class ContainerSubpocket extends Container {
                     int x = hand.getCount();
                     x = x - x / 2;
                     storage.add(SubpocketStackFactoryImpl.INSTANCE
-                            .create(hand.splitStack(x), (int) mx - 8, (int) my - 8));
+                            .create(hand.split(x), (int) mx - 8, (int) my - 8));
                     break;
                 }
                 if (hovered.isEmpty()) {
                     break;
                 }
                 if (click.isCtrl()) {
-                    while (tryToAddToPlayer(hovered, hovered.retrieveMax())) {}
+                    while (tryToAddToPlayer(hovered, hovered.retrieveMax()));
                     break;
                 }
                 if (!click.isShift()) {
-                    int x = hovered.getRef().getMaxStackSize();
+                    int x = Math.min(hovered.getCount().intValue(), hovered.getRef().getMaxStackSize());
                     x = x - x / 2;
                     player.inventory.setItemStack(hovered.retrieve(x));
                     break;
@@ -215,13 +213,13 @@ public class ContainerSubpocket extends Container {
                         ItemStack slot = findMatchingStack(adding, true);
                         if (!slot.isEmpty()) { // move items from inv one by one
                             storage.add(SubpocketStackFactoryImpl.INSTANCE
-                                    .create(slot.splitStack(1), (int) mx - 8, (int) my - 8));
+                                    .create(slot.split(1), (int) mx - 8, (int) my - 8));
                         }
                         break;
                     }
                     // move items from hand one by one
                     storage.add(SubpocketStackFactoryImpl.INSTANCE
-                            .create(hand.splitStack(1), (int) mx - 8, (int) my - 8));
+                            .create(hand.split(1), (int) mx - 8, (int) my - 8));
                     return;
                 }
                 // then filter by hovered
@@ -238,7 +236,7 @@ public class ContainerSubpocket extends Container {
                     slot.setCount(0);
                 } else if (click.isShift()) { // move items from inv one by one
                     storage.add(SubpocketStackFactoryImpl.INSTANCE
-                            .create(slot.splitStack(1), (int) mx - 8, (int) my - 8));
+                            .create(slot.split(1), (int) mx - 8, (int) my - 8));
                 }
                 break;
             }
@@ -273,16 +271,15 @@ public class ContainerSubpocket extends Container {
     @Override
     @Nonnull
     public ItemStack slotClick(int slotId, int dragType, ClickType clickType, EntityPlayer player) {
-        if (clickType == ClickType.CLONE && !player.capabilities.isCreativeMode && slotId >= 0) {
-            Slot slot = inventorySlots.get(slotId);
-            ItemStack stack = slot != null ? slot.getStack() : ItemStack.EMPTY;
-            if (!stack.isEmpty() && stack.getCount() < stack.getMaxStackSize()) {
-                storage.find(stack).fill(stack);
-            }
-            return ItemStack.EMPTY;
-        } else {
+        if (clickType != ClickType.CLONE || player.isCreative() || slotId < 0) {
             return super.slotClick(slotId, dragType, clickType, player);
         }
+        Slot slot = inventorySlots.get(slotId);
+        ItemStack stack = slot != null ? slot.getStack() : ItemStack.EMPTY;
+        if (!stack.isEmpty() && stack.getCount() < stack.getMaxStackSize()) {
+            storage.find(stack).fill(stack);
+        }
+        return ItemStack.EMPTY;
     }
 
     // shift-clicking inventory slot

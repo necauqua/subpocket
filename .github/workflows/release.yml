@@ -30,8 +30,8 @@ jobs:
         id: tag-check
         run: git describe --exact-match HEAD && echo '::set-output name=TAGGED::1' || true
 
-      - name: Make a release build and push it to curse and github
-        run: ./gradlew publish
+      - name: Make a release build and push it to curse, github and maven
+        run: ./gradlew publish githubRelease curseforge
         if: steps.tag-check.outputs.TAGGED
 
       - name: Make a git build and push it to curse

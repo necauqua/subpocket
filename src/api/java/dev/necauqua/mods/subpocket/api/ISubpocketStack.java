@@ -151,14 +151,14 @@ public interface ISubpocketStack extends INBTSerializable<NBTTagCompound> {
     }
 
     /**
-     * Relative X coordinate of upper-left corner of this stack in subpocket field.
+     * Relative X coordinate of upper-left corner of this stack in the subpocket field.
      *
      * @return stacks X coordinante.
      **/
     float getX();
 
     /**
-     * Relative Y coordinate of upper-left corner of this stack in subpocket field.
+     * Relative Y coordinate of upper-left corner of this stack in the subpocket field.
      *
      * @return stacks Y coordinante.
      **/
@@ -181,7 +181,7 @@ public interface ISubpocketStack extends INBTSerializable<NBTTagCompound> {
     @Nonnull
     default String getShortNumberString() {
         BigInteger count = getCount();
-        if (count.equals(BigInteger.ONE)) {
+        if (count.compareTo(BigInteger.ONE) <= 0) {
             return "";
         }
         String s = count.toString();

@@ -7,17 +7,14 @@ package dev.necauqua.mods.subpocket.impl;
 
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.api.ISubpocketStackFactory;
-import dev.necauqua.mods.subpocket.gui.ContainerSubpocket;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 
 import javax.annotation.Nonnull;
 import java.math.BigInteger;
-import java.util.Objects;
-import java.util.Random;
 
-public enum SubpocketStackFactoryImpl implements ISubpocketStackFactory {
-    INSTANCE;
+public final class SubpocketStackFactoryImpl implements ISubpocketStackFactory {
+    public static final ISubpocketStackFactory INSTANCE = new SubpocketStackFactoryImpl();
 
     @Nonnull
     @Override

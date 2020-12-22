@@ -6,55 +6,96 @@
 package dev.necauqua.mods.subpocket;
 
 import dev.necauqua.mods.subpocket.api.ISubpocket.StackSizeMode;
-import dev.necauqua.mods.subpocket.gui.ClickState;
-import dev.necauqua.mods.subpocket.gui.ContainerSubpocket;
-import dev.necauqua.mods.subpocket.handlers.SyncHandler;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.network.NetHandlerPlayClient;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.network.NetHandlerPlayServer;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.PacketBuffer;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.network.FMLEventChannel;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientCustomPacketEvent;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent.ServerCustomPacketEvent;
-import net.minecraftforge.fml.common.network.NetworkRegistry;
-import net.minecraftforge.fml.common.network.internal.FMLProxyPacket;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraft.network.play.client.CPacketCustomPayload;
+import net.minecraft.network.play.server.SPacketCustomPayload;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.loading.JarVersionLookupHandler;
+import net.minecraftforge.fml.network.NetworkEvent.ClientCustomPayloadEvent;
+import net.minecraftforge.fml.network.NetworkEvent.Context;
+import net.minecraftforge.fml.network.NetworkEvent.ServerCustomPayloadEvent;
+import net.minecraftforge.fml.network.NetworkRegistry;
+import org.apache.logging.log4j.LogManager;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
+import static dev.necauqua.mods.subpocket.Subpocket.ns;
 
+@EventBusSubscriber(modid = MODID, bus = Bus.MOD)
 public final class Network {
-    private static final FMLEventChannel channel = NetworkRegistry.INSTANCE.newEventDrivenChannel(MODID);
 
-    private Network() {}
-
-    public static void init() {
-        channel.register(Network.class);
-    }
+    private static final ResourceLocation CHANNEL = ns("channel");
 
     @SubscribeEvent
-    @SideOnly(Side.CLIENT)
-    public static void onClient(ClientCustomPacketEvent e) throws IOException {
-        PacketBuffer payload = new PacketBuffer(e.getPacket().payload());
-        EntityPlayer player = Minecraft.getMinecraft().player;
-        if (player != null) {
-            CapabilitySubpocket.get(player).deserializeNBT(payload.readCompoundTag());
-        } else {
-            SyncHandler.serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti = payload.readCompoundTag();
+    public static void on(FMLCommonSetupEvent e2) {
+        String version = JarVersionLookupHandler.getImplementationVersion(Subpocket.class).orElse("DEBUG");
+        NetworkRegistry.newEventChannel(
+                CHANNEL,
+                () -> version,
+                version::equals,
+                version::equals
+        ).registerObject(Network.class);
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    @EventBusSubscriber(value = Dist.CLIENT, modid = MODID)
+    private static final class Hack {
+
+        @Nullable
+        public static NBTTagCompound serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti;
+
+        @SubscribeEvent
+        public static void onEntityJoinedWorld(EntityJoinWorldEvent e) {
+            EntityPlayerSP player = Minecraft.getInstance().player;
+            NBTTagCompound nbt = serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti;
+            if (nbt != null && e.getEntity() == player) {
+                LogManager.getLogger(Subpocket.class).warn("DUMB WORKAROUND WORKED, PFEW");
+                serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti = null;
+                CapabilitySubpocket.get(player).deserializeNBT(nbt);
+            }
         }
     }
 
     @SubscribeEvent
-    public static void onServerReceive(ServerCustomPacketEvent e) {
-        PacketBuffer payload = new PacketBuffer(e.getPacket().payload());
-        EntityPlayerMP player = ((NetHandlerPlayServer) e.getHandler()).player;
+    @OnlyIn(Dist.CLIENT)
+    public static void onClient(ServerCustomPayloadEvent e) {
+        NBTTagCompound nbt = e.getPayload().readCompoundTag();
+        Context ctx = e.getSource().get();
+        ctx.enqueueWork(() -> {
+            EntityPlayer player = Minecraft.getInstance().player;
+            if (player != null) {
+                CapabilitySubpocket.get(player).deserializeNBT(nbt);
+            } else {
+                LogManager.getLogger(Subpocket.class).warn("CLIENTSIDE PLAYER WAS NULL ON SYNC, USING DUMB WORKAROUND");
+                Hack.serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti = nbt;
+            }
+        });
+        ctx.setPacketHandled(true);
+    }
+
+    @SubscribeEvent
+    public static void onServerReceive(ClientCustomPayloadEvent e) {
+        PacketBuffer payload = e.getPayload();
+        Context ctx = e.getSource().get();
+        EntityPlayerMP player = ctx.getSender();
+        if (player == null) {
+            return;
+        }
         switch (payload.readByte()) {
             case 0:
                 if (!(player.openContainer instanceof ContainerSubpocket)) {
@@ -66,23 +107,32 @@ public final class Network {
                 int index = payload.readInt();
                 byte b = payload.readByte();
                 if (b == 0) {
-                    container.stackMoved(x, y, index);
+                    ctx.enqueueWork(() -> container.stackMoved(x, y, index));
                 } else {
-                    container.processClick(x, y, new ClickState(b), index);
+                    ctx.enqueueWork(() -> container.processClick(x, y, new ClickState(b), index));
                 }
+                ctx.setPacketHandled(true);
                 break;
             case 1:
                 StackSizeMode stackSizeMode = StackSizeMode.values()[payload.readByte() % StackSizeMode.values().length];
-                CapabilitySubpocket.get(player).setStackSizeMode(stackSizeMode);
+                ctx.enqueueWork(() -> CapabilitySubpocket.get(player).setStackSizeMode(stackSizeMode));
+                ctx.setPacketHandled(true);
+        }
+    }
+
+    public static void syncToClient(EntityPlayer player) {
+        if (player instanceof EntityPlayerMP) {
+            syncToClient((EntityPlayerMP) player);
         }
     }
 
     public static void syncToClient(EntityPlayerMP player) {
         PacketBuffer payload = new PacketBuffer(Unpooled.buffer());
         payload.writeCompoundTag(CapabilitySubpocket.get(player).serializeNBT());
-        channel.sendTo(new FMLProxyPacket(payload, MODID), player);
+        player.connection.sendPacket(new SPacketCustomPayload(CHANNEL, payload));
     }
 
+    @OnlyIn(Dist.CLIENT)
     public static void sendClickToServer(float x, float y, int index, @Nullable ClickState state) {
         PacketBuffer payload = new PacketBuffer(Unpooled.buffer());
         payload.writeByte(0);
@@ -90,13 +140,22 @@ public final class Network {
         payload.writeFloat(y);
         payload.writeInt(index);
         payload.writeByte(state != null ? state.toByte() : 0);
-        channel.sendToServer(new FMLProxyPacket(payload, MODID));
+        NetHandlerPlayClient connection = Minecraft.getInstance().getConnection();
+        if (connection == null) {
+            throw new IllegalStateException("No client-to-server connection");
+        }
+        connection.sendPacket(new CPacketCustomPayload(CHANNEL, payload));
     }
 
+    @OnlyIn(Dist.CLIENT)
     public static void sendSetStackSizeModeToServer(StackSizeMode stackSizeMode) {
         PacketBuffer payload = new PacketBuffer(Unpooled.buffer());
         payload.writeByte(1);
         payload.writeByte(stackSizeMode.ordinal());
-        channel.sendToServer(new FMLProxyPacket(payload, MODID));
+        NetHandlerPlayClient connection = Minecraft.getInstance().getConnection();
+        if (connection == null) {
+            throw new IllegalStateException("No client-to-server connection");
+        }
+        connection.sendPacket(new CPacketCustomPayload(CHANNEL, payload));
     }
 }
