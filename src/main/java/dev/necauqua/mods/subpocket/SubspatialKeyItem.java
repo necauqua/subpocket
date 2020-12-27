@@ -6,30 +6,31 @@
 package dev.necauqua.mods.subpocket;
 
 import dev.necauqua.mods.subpocket.api.ISubpocket;
-import net.minecraft.block.state.IBlockState;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.EntityLightningBolt;
-import net.minecraft.entity.item.EntityItem;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.init.Blocks;
-import net.minecraft.inventory.Container;
-import net.minecraft.item.EnumRarity;
+import net.minecraft.entity.effect.LightningBoltEntity;
+import net.minecraft.entity.item.ItemEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.inventory.container.Container;
+import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Rarity;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.ActionResultType;
 import net.minecraft.util.DamageSource;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.EnumHand;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.IBlockReader;
-import net.minecraft.world.IInteractionObject;
 import net.minecraft.world.World;
 import net.minecraft.world.dimension.DimensionType;
 import net.minecraftforge.api.distmarker.Dist;
@@ -42,7 +43,6 @@ import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
-import net.minecraftforge.fml.network.NetworkHooks;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -51,7 +51,7 @@ import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 import static net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus.MOD;
 
 @EventBusSubscriber(modid = MODID, bus = MOD)
-public final class SubspatialKeyItem extends Item implements IInteractionObject {
+public final class SubspatialKeyItem extends Item implements INamedContainerProvider {
 
     public static final SubspatialKeyItem INSTANCE = new SubspatialKeyItem();
 
@@ -64,7 +64,7 @@ public final class SubspatialKeyItem extends Item implements IInteractionObject 
         super(new Properties()
                 .group(ItemGroup.MISC)
                 .maxStackSize(1)
-                .rarity(EnumRarity.EPIC));
+                .rarity(Rarity.EPIC));
         setRegistryName(MODID, "key");
     }
 
@@ -74,19 +74,20 @@ public final class SubspatialKeyItem extends Item implements IInteractionObject 
     }
 
     @Override
-    public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand handIn) {
-        if (world.isRemote || !CapabilitySubpocket.get(player).isUnlocked()) {
-            return new ActionResult<>(EnumActionResult.PASS, player.getHeldItem(handIn));
+    public ActionResult<ItemStack> onItemRightClick(World world, PlayerEntity player, Hand hand) {
+        if (world.isRemote || !SubpocketCapability.get(player).isUnlocked()) {
+            return new ActionResult<>(ActionResultType.PASS, player.getHeldItem(hand));
         }
-        if (!(player instanceof EntityPlayerMP)) { // idk may be some fake player or something
-            return new ActionResult<>(EnumActionResult.FAIL, player.getHeldItem(handIn));
+        if (!(player instanceof ServerPlayerEntity)) { // idk may be some fake player or something
+            return new ActionResult<>(ActionResultType.FAIL, player.getHeldItem(hand));
         }
-        NetworkHooks.openGui((EntityPlayerMP) player, this);
-        return new ActionResult<>(EnumActionResult.SUCCESS, player.getHeldItem(handIn));
+        player.openContainer(this);
+        return new ActionResult<>(ActionResultType.SUCCESS, player.getHeldItem(hand));
     }
 
     @Override
-    public boolean onEntityItemUpdate(ItemStack stack, EntityItem entity) {
+    public boolean onEntityItemUpdate(ItemStack stack, ItemEntity entity) {
+        entity.extinguish();
         if (!Config.subspatialKeyFrozen) {
             return false;
         }
@@ -108,8 +109,8 @@ public final class SubspatialKeyItem extends Item implements IInteractionObject 
     @Override
     @OnlyIn(Dist.CLIENT)
     public boolean hasEffect(ItemStack stack) {
-        EntityPlayer player = Minecraft.getInstance().player;
-        return player != null && player.getCapability(CapabilitySubpocket.INSTANCE)
+        PlayerEntity player = Minecraft.getInstance().player;
+        return player != null && player.getCapability(SubpocketCapability.INSTANCE)
                 .map(ISubpocket::isUnlocked)
                 .orElse(false); // can actually be empty here (e.g. when dead)
     }
@@ -118,29 +119,18 @@ public final class SubspatialKeyItem extends Item implements IInteractionObject 
     @OnlyIn(Dist.CLIENT)
     public void addInformation(ItemStack stack, @Nullable World worldIn, List<ITextComponent> tooltip, ITooltipFlag flagIn) {
         if (!hasEffect(stack)) {
-            tooltip.add(new TextComponentTranslation("item.subpocket:key.desc"));
+            tooltip.add(new TranslationTextComponent("item.subpocket:key.desc"));
         }
     }
 
     @Override
-    public Container createContainer(InventoryPlayer playerInventory, EntityPlayer player) {
-        return new ContainerSubpocket(player);
+    public Container createMenu(int id, PlayerInventory playerInv, PlayerEntity player) {
+        return new SubpocketContainer(id, playerInv);
     }
 
     @Override
-    public String getGuiID() {
-        return MODID + ":it";
-    }
-
-    @Override
-    public boolean hasCustomName() {
-        return false;
-    }
-
-    @Nullable
-    @Override
-    public ITextComponent getCustomName() {
-        return null;
+    public ITextComponent getDisplayName() {
+        return new StringTextComponent("");
     }
 
     @EventBusSubscriber(modid = MODID)
@@ -151,12 +141,12 @@ public final class SubspatialKeyItem extends Item implements IInteractionObject 
             if (!Config.blockEnderChests || e.getWorld().getBlockState(e.getPos()).getBlock() != Blocks.ENDER_CHEST) {
                 return;
             }
-            EntityPlayer player = e.getEntityPlayer();
-            if (player.isCreative() || !CapabilitySubpocket.get(player).isUnlocked()) {
+            PlayerEntity player = e.getPlayer();
+            if (player.isCreative() || !SubpocketCapability.get(player).isUnlocked()) {
                 return;
             }
             if (!player.world.isRemote) {
-                player.sendStatusMessage(new TextComponentTranslation("popup." + MODID + ":blocked_ender_chest"), true);
+                player.sendStatusMessage(new TranslationTextComponent("popup." + MODID + ":blocked_ender_chest"), true);
             }
             e.setUseBlock(Event.Result.DENY);
         }
@@ -164,15 +154,14 @@ public final class SubspatialKeyItem extends Item implements IInteractionObject 
         @SubscribeEvent
         public static void onEntityJoinWorld(EntityJoinWorldEvent event) {
             Entity entity = event.getEntity();
-            if (!entity.getClass().equals(EntityItem.class)) {
+            if (!entity.getClass().equals(ItemEntity.class)) {
                 return;
             }
-            EntityItem entityItem = (EntityItem) entity;
+            ItemEntity entityItem = (ItemEntity) entity;
             if (entityItem.getItem().getItem() != INSTANCE) {
                 return;
             }
             entity.setInvulnerable(true);
-            entityItem.isImmuneToFire = true;
             if (Config.subspatialKeyNoDespawn) {
                 entityItem.age = -32768;
             }
@@ -180,25 +169,25 @@ public final class SubspatialKeyItem extends Item implements IInteractionObject 
 
         @SubscribeEvent
         public static void on(PlayerEvent.BreakSpeed e) {
-            EntityPlayer player = e.getEntityPlayer();
+            PlayerEntity player = e.getPlayer();
             if (player.dimension == DimensionType.THE_END
                     && e.getState().getBlock() == Blocks.ENDER_CHEST
                     && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE
                     && player.world.getGameTime() % 20 == 0
-                    && !CapabilitySubpocket.get(player).isUnlocked()) {
+                    && !SubpocketCapability.get(player).isUnlocked()) {
                 player.attackEntityFrom(DamageSource.OUT_OF_WORLD, 1.0F);
             }
         }
 
         @SubscribeEvent
         public static void on(BlockEvent.BreakEvent e) {
-            EntityPlayer player = e.getPlayer();
+            PlayerEntity player = e.getPlayer();
             if (player.dimension != DimensionType.THE_END
                     || e.getState().getBlock() != Blocks.ENDER_CHEST
                     || player.getHeldItemMainhand().getItem() != SubspatialKeyItem.INSTANCE) {
                 return;
             }
-            ISubpocket storage = CapabilitySubpocket.get(player);
+            ISubpocket storage = SubpocketCapability.get(player);
             if (storage.isUnlocked()) {
                 return;
             }
@@ -207,28 +196,20 @@ public final class SubspatialKeyItem extends Item implements IInteractionObject 
                 return;
             }
             BlockPos p = e.getPos();
-            EntityLightningBolt lightning = new EntityLightningBolt(world, p.getX(), p.getY(), p.getZ(), false);
-            world.spawnEntity(lightning);
+            LightningBoltEntity lightning = new LightningBoltEntity(world, p.getX(), p.getY(), p.getZ(), false);
+            world.addEntity(lightning);
             storage.unlock();
             Network.syncToClient(player);
         }
 
-        @SubscribeEvent
-        public static void on(BlockEvent.HarvestDropsEvent e) {
-            EntityPlayer player = e.getHarvester();
-            if (player != null && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE) {
-                e.getDrops().clear();
-            }
-        }
-
         @SuppressWarnings("unused") // called from the coremod
-        public static boolean forceDefaultSpeedCondition(IBlockState state, EntityPlayer player, IBlockReader blockReader, BlockPos pos) {
+        public static boolean forceDefaultSpeedCondition(BlockState state, PlayerEntity player, IBlockReader blockReader, BlockPos pos) {
             float hardness = state.getBlockHardness(blockReader, pos);
             return (hardness >= 0.0F || Config.allowBreakingUnbreakable)
                     && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE
                     && (state.getBlock() != Blocks.ENDER_CHEST
                     || player.dimension != DimensionType.THE_END
-                    || CapabilitySubpocket.get(player).isUnlocked());
+                    || SubpocketCapability.get(player).isUnlocked());
         }
     }
 }

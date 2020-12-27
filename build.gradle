@@ -15,7 +15,7 @@ sourceSets { api }
 
 nmod {
     curseID = '275425'
-    version = '1.13-3.0.0.0'
-    forge = '1.13.2-25.0.219'
-    mappings = '20180921-1.13'
+    version = '1.14-4.0.0.0'
+    forge = '1.14.4-28.2.23'
+    mappings = '20190719-1.14.3'
 }

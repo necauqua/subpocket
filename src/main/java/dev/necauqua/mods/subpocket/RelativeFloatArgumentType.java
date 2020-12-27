@@ -14,14 +14,14 @@ import net.minecraft.network.PacketBuffer;
 
 import java.util.concurrent.CompletableFuture;
 
-import static dev.necauqua.mods.subpocket.Subpocket.ns;
+import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 
 public final class RelativeFloatArgumentType implements ArgumentType<RelativeFloatArgumentType.RelativeFloat> {
     private final float minimum;
     private final float maximum;
 
     static {
-        ArgumentTypes.register(ns("rel_float"), RelativeFloatArgumentType.class, new Serializer());
+        ArgumentTypes.register(MODID + ":rel_float", RelativeFloatArgumentType.class, new Serializer());
     }
 
     private RelativeFloatArgumentType(float minimum, float maximum) {
@@ -180,7 +180,7 @@ public final class RelativeFloatArgumentType implements ArgumentType<RelativeFlo
             return RelativeFloatArgumentType.relativeFloat(min, max);
         }
 
-        public void func_212244_a(RelativeFloatArgumentType argument, JsonObject json) {
+        public void write(RelativeFloatArgumentType argument, JsonObject json) {
             if (argument.minimum != Float.MIN_VALUE) {
                 json.addProperty("min", argument.minimum);
             }

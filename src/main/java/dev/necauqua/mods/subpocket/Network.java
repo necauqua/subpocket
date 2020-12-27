@@ -8,14 +8,14 @@ package dev.necauqua.mods.subpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocket.StackSizeMode;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.EntityPlayerSP;
-import net.minecraft.client.network.NetHandlerPlayClient;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.client.entity.player.ClientPlayerEntity;
+import net.minecraft.client.network.play.ClientPlayNetHandler;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.PacketBuffer;
-import net.minecraft.network.play.client.CPacketCustomPayload;
-import net.minecraft.network.play.server.SPacketCustomPayload;
+import net.minecraft.network.play.client.CCustomPayloadPacket;
+import net.minecraft.network.play.server.SCustomPayloadPlayPacket;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -57,16 +57,16 @@ public final class Network {
     private static final class Hack {
 
         @Nullable
-        public static NBTTagCompound serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti;
+        public static CompoundNBT serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti;
 
         @SubscribeEvent
         public static void onEntityJoinedWorld(EntityJoinWorldEvent e) {
-            EntityPlayerSP player = Minecraft.getInstance().player;
-            NBTTagCompound nbt = serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti;
+            ClientPlayerEntity player = Minecraft.getInstance().player;
+            CompoundNBT nbt = serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti;
             if (nbt != null && e.getEntity() == player) {
                 LogManager.getLogger(Subpocket.class).warn("DUMB WORKAROUND WORKED, PFEW");
                 serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti = null;
-                CapabilitySubpocket.get(player).deserializeNBT(nbt);
+                SubpocketCapability.get(player).deserializeNBT(nbt);
             }
         }
     }
@@ -74,12 +74,12 @@ public final class Network {
     @SubscribeEvent
     @OnlyIn(Dist.CLIENT)
     public static void onClient(ServerCustomPayloadEvent e) {
-        NBTTagCompound nbt = e.getPayload().readCompoundTag();
+        CompoundNBT nbt = e.getPayload().readCompoundTag();
         Context ctx = e.getSource().get();
         ctx.enqueueWork(() -> {
-            EntityPlayer player = Minecraft.getInstance().player;
+            PlayerEntity player = Minecraft.getInstance().player;
             if (player != null) {
-                CapabilitySubpocket.get(player).deserializeNBT(nbt);
+                SubpocketCapability.get(player).deserializeNBT(nbt);
             } else {
                 LogManager.getLogger(Subpocket.class).warn("CLIENTSIDE PLAYER WAS NULL ON SYNC, USING DUMB WORKAROUND");
                 Hack.serverSyncedBeforeMinecraftPlayerWasThereOmgMcAndForgeCodeAreSpaghetti = nbt;
@@ -92,16 +92,16 @@ public final class Network {
     public static void onServerReceive(ClientCustomPayloadEvent e) {
         PacketBuffer payload = e.getPayload();
         Context ctx = e.getSource().get();
-        EntityPlayerMP player = ctx.getSender();
+        ServerPlayerEntity player = ctx.getSender();
         if (player == null) {
             return;
         }
         switch (payload.readByte()) {
             case 0:
-                if (!(player.openContainer instanceof ContainerSubpocket)) {
+                if (!(player.openContainer instanceof SubpocketContainer)) {
                     return;
                 }
-                ContainerSubpocket container = (ContainerSubpocket) player.openContainer;
+                SubpocketContainer container = (SubpocketContainer) player.openContainer;
                 float x = payload.readFloat();
                 float y = payload.readFloat();
                 int index = payload.readInt();
@@ -115,21 +115,21 @@ public final class Network {
                 break;
             case 1:
                 StackSizeMode stackSizeMode = StackSizeMode.values()[payload.readByte() % StackSizeMode.values().length];
-                ctx.enqueueWork(() -> CapabilitySubpocket.get(player).setStackSizeMode(stackSizeMode));
+                ctx.enqueueWork(() -> SubpocketCapability.get(player).setStackSizeMode(stackSizeMode));
                 ctx.setPacketHandled(true);
         }
     }
 
-    public static void syncToClient(EntityPlayer player) {
-        if (player instanceof EntityPlayerMP) {
-            syncToClient((EntityPlayerMP) player);
+    public static void syncToClient(PlayerEntity player) {
+        if (player instanceof ServerPlayerEntity) {
+            syncToClient((ServerPlayerEntity) player);
         }
     }
 
-    public static void syncToClient(EntityPlayerMP player) {
+    public static void syncToClient(ServerPlayerEntity player) {
         PacketBuffer payload = new PacketBuffer(Unpooled.buffer());
-        payload.writeCompoundTag(CapabilitySubpocket.get(player).serializeNBT());
-        player.connection.sendPacket(new SPacketCustomPayload(CHANNEL, payload));
+        payload.writeCompoundTag(SubpocketCapability.get(player).serializeNBT());
+        player.connection.sendPacket(new SCustomPayloadPlayPacket(CHANNEL, payload));
     }
 
     @OnlyIn(Dist.CLIENT)
@@ -140,11 +140,11 @@ public final class Network {
         payload.writeFloat(y);
         payload.writeInt(index);
         payload.writeByte(state != null ? state.toByte() : 0);
-        NetHandlerPlayClient connection = Minecraft.getInstance().getConnection();
+        ClientPlayNetHandler connection = Minecraft.getInstance().getConnection();
         if (connection == null) {
             throw new IllegalStateException("No client-to-server connection");
         }
-        connection.sendPacket(new CPacketCustomPayload(CHANNEL, payload));
+        connection.sendPacket(new CCustomPayloadPacket(CHANNEL, payload));
     }
 
     @OnlyIn(Dist.CLIENT)
@@ -152,10 +152,10 @@ public final class Network {
         PacketBuffer payload = new PacketBuffer(Unpooled.buffer());
         payload.writeByte(1);
         payload.writeByte(stackSizeMode.ordinal());
-        NetHandlerPlayClient connection = Minecraft.getInstance().getConnection();
+        ClientPlayNetHandler connection = Minecraft.getInstance().getConnection();
         if (connection == null) {
             throw new IllegalStateException("No client-to-server connection");
         }
-        connection.sendPacket(new CPacketCustomPayload(CHANNEL, payload));
+        connection.sendPacket(new CCustomPayloadPacket(CHANNEL, payload));
     }
 }

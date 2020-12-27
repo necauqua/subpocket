@@ -35,7 +35,7 @@ function initializeCoreMod() {
                 var method = findMethod(classNode.methods, {
                     obf: 'func_180647_a',
                     name: 'getPlayerRelativeBlockHardness',
-                    desc: '(Lnet/minecraft/block/state/IBlockState;Lnet/minecraft/entity/player/EntityPlayer;Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;)F',
+                    desc: '(Lnet/minecraft/block/BlockState;Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;)F',
                 });
                 var injection = new InsnList();
                 injection.add(new VarInsnNode(Opcodes.ALOAD, 1));
@@ -45,7 +45,7 @@ function initializeCoreMod() {
                 injection.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
                     'dev/necauqua/mods/subpocket/SubspatialKeyItem$Interactions',
                     'forceDefaultSpeedCondition',
-                    '(Lnet/minecraft/block/state/IBlockState;Lnet/minecraft/entity/player/EntityPlayer;Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;)Z',
+                    '(Lnet/minecraft/block/BlockState;Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;)Z',
                     false));
                 var skip = new LabelNode();
                 injection.add(new JumpInsnNode(Opcodes.IFEQ, skip));

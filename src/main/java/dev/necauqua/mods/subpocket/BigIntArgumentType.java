@@ -15,7 +15,7 @@ import java.math.BigInteger;
 import java.util.Objects;
 
 import static com.mojang.brigadier.StringReader.isAllowedNumber;
-import static dev.necauqua.mods.subpocket.Subpocket.ns;
+import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 
 public final class BigIntArgumentType implements ArgumentType<BigInteger> {
     @Nullable
@@ -25,7 +25,7 @@ public final class BigIntArgumentType implements ArgumentType<BigInteger> {
     private final BigInteger maximum;
 
     static {
-        ArgumentTypes.register(ns("bigint"), BigIntArgumentType.class, new Serializer());
+        ArgumentTypes.register(MODID + ":bigint", BigIntArgumentType.class, new Serializer());
     }
 
     private BigIntArgumentType(@Nullable BigInteger minimum, @Nullable BigInteger maximum) {
@@ -145,7 +145,7 @@ public final class BigIntArgumentType implements ArgumentType<BigInteger> {
         }
 
         @Override
-        public void func_212244_a(BigIntArgumentType argument, JsonObject json) {
+        public void write(BigIntArgumentType argument, JsonObject json) {
             if (argument.minimum != null) {
                 json.addProperty("min", argument.minimum.toString());
             }

@@ -6,14 +6,14 @@
 package dev.necauqua.mods.subpocket.api;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraftforge.common.util.INBTSerializable;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
 
-public interface ISubpocketStack extends INBTSerializable<NBTTagCompound> {
+public interface ISubpocketStack extends INBTSerializable<CompoundNBT> {
 
     // semi-easter-egg (well, how does one get to omg-illion items?) - Clicker Heroes legend is used here
     // (except that `O` is replaced by `o` because in minecraft font it is too similar to zero)

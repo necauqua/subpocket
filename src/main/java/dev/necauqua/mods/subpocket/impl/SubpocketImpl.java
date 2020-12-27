@@ -7,14 +7,14 @@ package dev.necauqua.mods.subpocket.impl;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import dev.necauqua.mods.subpocket.CapabilitySubpocket;
+import dev.necauqua.mods.subpocket.SubpocketCapability;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.INBTBase;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.EnumFacing;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.INBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.util.Direction;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.LazyOptional;
 
@@ -165,26 +165,26 @@ public final class SubpocketImpl implements ISubpocket {
     }
 
     @Override
-    public NBTTagCompound serializeNBT() {
-        NBTTagCompound nbt = new NBTTagCompound();
-        NBTTagList list = new NBTTagList();
+    public CompoundNBT serializeNBT() {
+        CompoundNBT nbt = new CompoundNBT();
+        ListNBT list = new ListNBT();
         stacks.forEach(s -> list.add(s.serializeNBT()));
-        nbt.setTag("storage", list);
-        nbt.setBoolean("unlocked", unlocked);
-        nbt.setByte("stackSizeMode", (byte) stackSizeMode.ordinal());
+        nbt.put("storage", list);
+        nbt.putBoolean("unlocked", unlocked);
+        nbt.putByte("stackSizeMode", (byte) stackSizeMode.ordinal());
         return nbt;
     }
 
     @Override
-    public void deserializeNBT(NBTTagCompound nbt) {
+    public void deserializeNBT(CompoundNBT nbt) {
         clear();
         unlocked = nbt.getBoolean("unlocked");
         stackSizeMode = StackSizeMode.values()[nbt.getByte("stackSizeMode") % StackSizeMode.values().length];
-        INBTBase listBase = nbt.getTag("storage");
-        if (!(listBase instanceof NBTTagList)) {
+        INBT listBase = nbt.get("storage");
+        if (!(listBase instanceof ListNBT)) {
             return;
         }
-        NBTTagList list = (NBTTagList) listBase;
+        ListNBT list = (ListNBT) listBase;
         for (int i = 0; i < list.size(); i++) {
             ISubpocketStack stack = SubpocketStackFactoryImpl.INSTANCE
                     .create(list.getCompound(i));
@@ -197,8 +197,8 @@ public final class SubpocketImpl implements ISubpocket {
     }
 
     @Override
-    public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> capability, @Nullable EnumFacing facing) {
-        return capability == CapabilitySubpocket.INSTANCE ?
+    public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> capability, @Nullable Direction direction) {
+        return capability == SubpocketCapability.INSTANCE ?
                 container.cast() :
                 LazyOptional.empty();
     }

@@ -6,7 +6,7 @@
 package dev.necauqua.mods.subpocket.api;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
 
 import javax.annotation.Nonnull;
 import java.math.BigInteger;
@@ -89,5 +89,5 @@ public interface ISubpocketStackFactory {
      * @return stack instance.
      **/
     @Nonnull
-    ISubpocketStack create(NBTTagCompound nbt);
+    ISubpocketStack create(CompoundNBT nbt);
 }

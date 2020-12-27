@@ -8,15 +8,26 @@ package dev.necauqua.mods.subpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.impl.SubpocketStackFactoryImpl;
+import net.minecraft.client.gui.ScreenManager;
 import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.inventory.*;
+import net.minecraft.entity.MobEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.EquipmentSlotType;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.container.ClickType;
+import net.minecraft.inventory.container.Container;
+import net.minecraft.inventory.container.ContainerType;
+import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -24,11 +35,17 @@ import java.math.BigInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-public final class ContainerSubpocket extends Container {
+import static dev.necauqua.mods.subpocket.Subpocket.MODID;
+import static dev.necauqua.mods.subpocket.Subpocket.ns;
+
+@EventBusSubscriber(modid = MODID, bus = Bus.MOD)
+public final class SubpocketContainer extends Container {
     public static final int WIDTH = 160, HEIGHT = 70;
 
-    private static final EntityEquipmentSlot[] ARMOR_SLOTS = new EntityEquipmentSlot[]{
-            EntityEquipmentSlot.HEAD, EntityEquipmentSlot.CHEST, EntityEquipmentSlot.LEGS, EntityEquipmentSlot.FEET
+    public static final ContainerType<SubpocketContainer> TYPE = new ContainerType<>(SubpocketContainer::new);
+
+    private static final EquipmentSlotType[] ARMOR_SLOTS = new EquipmentSlotType[]{
+            EquipmentSlotType.HEAD, EquipmentSlotType.CHEST, EquipmentSlotType.LEGS, EquipmentSlotType.FEET
     };
     private static final String[] EMPTY_ARMOR_SLOT_NAMES = new String[]{
             "item/empty_armor_slot_boots",
@@ -37,17 +54,28 @@ public final class ContainerSubpocket extends Container {
             "item/empty_armor_slot_helmet"
     };
 
-    private final EntityPlayer player;
+    private final PlayerEntity player;
     private final ISubpocket storage;
 
-    public ContainerSubpocket(EntityPlayer player) {
-        this.player = player;
-        storage = CapabilitySubpocket.get(player);
+    @SubscribeEvent
+    public static void on(RegistryEvent.Register<ContainerType<?>> e) {
+        e.getRegistry().register(TYPE.setRegistryName(ns("container")));
+    }
+
+    @SubscribeEvent
+    @OnlyIn(Dist.CLIENT)
+    public static void on(FMLClientSetupEvent e) {
+        ScreenManager.registerFactory(TYPE, SubpocketScreen::new);
+    }
+
+    public SubpocketContainer(int windowId, PlayerInventory playerInv) {
+        super(TYPE, windowId);
+        this.player = playerInv.player;
+        storage = SubpocketCapability.get(player);
 
         // sync on every open
         Network.syncToClient(player);
 
-        InventoryPlayer playerInv = player.inventory;
         for (int x = 0; x < 9; ++x) { // hotbar
             addSlot(new Slot(playerInv, x, x * 18 + 35, 142));
         }
@@ -57,7 +85,7 @@ public final class ContainerSubpocket extends Container {
             }
         }
         for (int k = 0; k < 4; ++k) { // armor slots
-            EntityEquipmentSlot armorType = ARMOR_SLOTS[k];
+            EquipmentSlotType armorType = ARMOR_SLOTS[k];
             addSlot(new Slot(playerInv, 39 - k, 8, k * 18 + 26) { // yay for non-existent ArmorSlot class
                 public int getSlotStackLimit() {
                     return 1;
@@ -67,7 +95,7 @@ public final class ContainerSubpocket extends Container {
                     return stack.canEquip(armorType, player);
                 }
 
-                public boolean canTakeStack(EntityPlayer player) {
+                public boolean canTakeStack(PlayerEntity player) {
                     ItemStack itemstack = this.getStack();
                     return itemstack.isEmpty()
                             || player.isCreative()
@@ -115,7 +143,7 @@ public final class ContainerSubpocket extends Container {
     }
 
     private boolean tryToAddToPlayer(ISubpocketStack stack, ItemStack retrieved) {
-        EntityEquipmentSlot slot = EntityLiving.getSlotForItemStack(retrieved);
+        EquipmentSlotType slot = MobEntity.getSlotForItemStack(retrieved);
         if (player.getItemStackFromSlot(slot).isEmpty()) {
             player.setItemStackToSlot(slot, retrieved);
             return true;
@@ -270,7 +298,7 @@ public final class ContainerSubpocket extends Container {
     // middle-clicking inventory slot
     @Override
     @Nonnull
-    public ItemStack slotClick(int slotId, int dragType, ClickType clickType, EntityPlayer player) {
+    public ItemStack slotClick(int slotId, int dragType, ClickType clickType, PlayerEntity player) {
         if (clickType != ClickType.CLONE || player.isCreative() || slotId < 0) {
             return super.slotClick(slotId, dragType, clickType, player);
         }
@@ -285,7 +313,7 @@ public final class ContainerSubpocket extends Container {
     // shift-clicking inventory slot
     @Override
     @Nonnull
-    public ItemStack transferStackInSlot(EntityPlayer player, int index) {
+    public ItemStack transferStackInSlot(PlayerEntity player, int index) {
         Slot slot = getSlot(index);
         storage.add(slot.getStack());
         slot.putStack(ItemStack.EMPTY);
@@ -293,7 +321,7 @@ public final class ContainerSubpocket extends Container {
     }
 
     @Override
-    public boolean canInteractWith(@Nullable EntityPlayer player) {
+    public boolean canInteractWith(@Nullable PlayerEntity player) {
         return true;
     }
 }

@@ -60,7 +60,10 @@ public final class Config {
     private static void load(Class<?> holder, CommentedConfig config) {
         try {
             for (Field field : holder.getFields()) {
-                field.set(null, config.get(LOWER_CAMEL.to(LOWER_UNDERSCORE, field.getName())));
+                Boolean value = config.get(LOWER_CAMEL.to(LOWER_UNDERSCORE, field.getName()));
+                if (value != null) {
+                    field.set(null, value);
+                }
             }
         } catch (IllegalAccessException ignored) {
         }

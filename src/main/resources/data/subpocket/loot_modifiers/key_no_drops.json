@@ -1,0 +1,11 @@
+{
+  "conditions": [
+    {
+      "condition": "minecraft:match_tool",
+      "predicate": {
+        "item": "subpocket:key"
+      }
+    }
+  ],
+  "type": "subpocket:clear_drops"
+}

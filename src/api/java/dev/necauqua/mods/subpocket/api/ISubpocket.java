@@ -6,7 +6,7 @@
 package dev.necauqua.mods.subpocket.api;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraftforge.common.capabilities.ICapabilitySerializable;
 
 import javax.annotation.Nonnull;
@@ -21,7 +21,7 @@ import java.util.List;
  * &#64;CapabilityInject(ISubpocket.class)
  * public static Capability&lt;ISubpocket&gt; SUBPOCKET_CAPABILITY;
  *
- * void method(EntityPlayer player) {
+ * void method(PlayerEntity player) {
  *     if (SUBPOCKET_STORAGE_CAPABILITY != null) { // if the mod was loaded
  *         player.getCapability(SUBPOCKET_STORAGE_CAPABILITY)
  *             .ifPresent(storage -&gt; {
@@ -31,7 +31,7 @@ import java.util.List;
  * }
  * </pre>
  **/
-public interface ISubpocket extends ICapabilitySerializable<NBTTagCompound>, Iterable<ISubpocketStack> {
+public interface ISubpocket extends ICapabilitySerializable<CompoundNBT>, Iterable<ISubpocketStack> {
 
     /**
      * Returns the state of the players subpocket.

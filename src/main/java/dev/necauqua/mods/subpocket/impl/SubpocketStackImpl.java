@@ -5,12 +5,12 @@
 
 package dev.necauqua.mods.subpocket.impl;
 
-import dev.necauqua.mods.subpocket.ContainerSubpocket;
+import dev.necauqua.mods.subpocket.SubpocketContainer;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
-import net.minecraft.init.Blocks;
+import net.minecraft.block.Blocks;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.util.math.MathHelper;
 
 import javax.annotation.Nonnull;
@@ -127,29 +127,29 @@ public final class SubpocketStackImpl implements ISubpocketStack {
 
     @Override
     public void setPos(float x, float y) {
-        this.x = MathHelper.clamp(x, -15, ContainerSubpocket.WIDTH - 1);
-        this.y = MathHelper.clamp(y, -15, ContainerSubpocket.HEIGHT - 1);
+        this.x = MathHelper.clamp(x, -15, SubpocketContainer.WIDTH - 1);
+        this.y = MathHelper.clamp(y, -15, SubpocketContainer.HEIGHT - 1);
     }
 
     @Override
-    public NBTTagCompound serializeNBT() {
-        NBTTagCompound nbt = new NBTTagCompound();
-        NBTTagCompound refNbt = new NBTTagCompound();
+    public CompoundNBT serializeNBT() {
+        CompoundNBT nbt = new CompoundNBT();
+        CompoundNBT refNbt = new CompoundNBT();
         ref.write(refNbt);
-        refNbt.removeTag("Count"); // eh, but why to store it, huh
-        nbt.setTag("ref", refNbt);
-        nbt.setByteArray("count", count.toByteArray());
-        nbt.setFloat("x", x);
-        nbt.setFloat("y", y);
+        refNbt.remove("Count"); // eh, but why to store it, huh
+        nbt.put("ref", refNbt);
+        nbt.putByteArray("count", count.toByteArray());
+        nbt.putFloat("x", x);
+        nbt.putFloat("y", y);
         return nbt;
     }
 
     @Override
-    public void deserializeNBT(NBTTagCompound nbt) {
-        NBTTagCompound refNbt = nbt.getCompound("ref");
-        refNbt.setByte("Count", (byte) 1); // as above      ^
+    public void deserializeNBT(CompoundNBT nbt) {
+        CompoundNBT refNbt = nbt.getCompound("ref");
+        refNbt.putByte("Count", (byte) 1); // as above      ^
         ref = ItemStack.read(refNbt);
-        count = nbt.hasKey("count") && nbt.getTagId("count") == 7 ?
+        count = nbt.contains("count", 7) ?
                 new BigInteger(nbt.getByteArray("count")) :
                 BigInteger.ONE;
         setPos(nbt.getFloat("x"), nbt.getFloat("y"));

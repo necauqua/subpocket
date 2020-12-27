@@ -3,19 +3,19 @@ package dev.necauqua.mods.subpocket;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture.Type;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.EntityPlayerSP;
-import net.minecraft.client.network.NetHandlerPlayClient;
-import net.minecraft.client.network.NetworkPlayerInfo;
+import net.minecraft.client.entity.player.ClientPlayerEntity;
+import net.minecraft.client.network.play.ClientPlayNetHandler;
+import net.minecraft.client.network.play.NetworkPlayerInfo;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 import javax.annotation.Nullable;
 import java.util.UUID;
@@ -31,12 +31,12 @@ public final class Eggs {
     @Nullable
     private static ResourceLocation cachedCape;
     @Nullable
-    private static EntityPlayer authorPlayer;
+    private static PlayerEntity authorPlayer;
 
     // classic (literally not wired up to anything in this forge, lul)
     @SubscribeEvent
     public static void on(PlayerEvent.NameFormat e) {
-        if (NECAUQUA.equals(e.getEntityPlayer().getGameProfile().getId())) {
+        if (NECAUQUA.equals(e.getPlayer().getGameProfile().getId())) {
             e.setDisplayname("§o§dnecauqua§r");
         }
     }
@@ -47,10 +47,9 @@ public final class Eggs {
         if (authorPlayer == null || cachedCape == null) {
             return;
         }
-        NetHandlerPlayClient connection = Minecraft.getInstance().getConnection();
+        ClientPlayNetHandler connection = Minecraft.getInstance().getConnection();
         assert connection != null;
         NetworkPlayerInfo playerInfo = connection.getPlayerInfo(authorPlayer.getUniqueID());
-        //noinspection ConstantConditions wtf
         if (playerInfo != null) {
             playerInfo.playerTextures.put(Type.CAPE, cachedCape);
             authorPlayer = null;
@@ -61,10 +60,10 @@ public final class Eggs {
     @OnlyIn(Dist.CLIENT)
     public static void on(EntityJoinWorldEvent e) {
         Entity entity = e.getEntity();
-        if (!(entity instanceof EntityPlayerSP)) {
+        if (!(entity instanceof ClientPlayerEntity)) {
             return;
         }
-        EntityPlayer player = ((EntityPlayerSP) entity);
+        PlayerEntity player = ((ClientPlayerEntity) entity);
         if (!NECAUQUA.equals(player.getGameProfile().getId())) {
             return;
         }
