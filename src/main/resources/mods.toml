@@ -1,6 +1,7 @@
 
 modLoader='javafml'
 loaderVersion='[25,)'
+license='MIT'
 issueTrackerURL='https://github.com/necauqua/subpocket/issues'
 
 [[mods]]

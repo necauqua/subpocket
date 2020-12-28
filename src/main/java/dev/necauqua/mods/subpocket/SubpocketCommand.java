@@ -168,8 +168,8 @@ public final class SubpocketCommand {
 
     private static ITextComponent helpCommandTitle(LiteralArgumentBuilder<CommandSource> subcommand) {
         return new StringTextComponent("/subpocket " + subcommand.getLiteral())
-                .applyTextStyle(TextFormatting.GOLD)
-                .appendText(":");
+                .mergeStyle(TextFormatting.GOLD)
+                .appendString(":");
     }
 
     @SubscribeEvent
@@ -187,7 +187,7 @@ public final class SubpocketCommand {
         subpocket.then(HELP);
         SUBCOMMANDS.forEach(subpocket::then);
 
-        e.getCommandDispatcher().register(subpocket);
+        e.getServer().getCommandManager().getDispatcher().register(subpocket);
     }
 
     private static int add(CommandSource src, ItemStack ref, BigInteger count, Collection<ServerPlayerEntity> players, int x, int y) {

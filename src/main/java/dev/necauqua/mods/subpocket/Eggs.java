@@ -33,24 +33,24 @@ import static net.minecraft.util.text.event.HoverEvent.Action.SHOW_TEXT;
 @EventBusSubscriber(modid = MODID)
 public final class Eggs {
 
-    private static ITextComponent base(String prefix) {
-        return new StringTextComponent(prefix).applyTextStyle(LIGHT_PURPLE);
+    private static IFormattableTextComponent base(String prefix) {
+        return new StringTextComponent(prefix).mergeStyle(LIGHT_PURPLE);
     }
 
-    private static ITextComponent obf(char str) {
-        return new StringTextComponent(Character.toString(str)).applyTextStyle(OBFUSCATED);
+    private static IFormattableTextComponent obf(char str) {
+        return new StringTextComponent(Character.toString(str)).mergeStyle(OBFUSCATED);
     }
 
-    private static final ITextComponent[] USERNAME_VARIATIONS = {
+    private static final IFormattableTextComponent[] USERNAME_VARIATIONS = {
             base("necauqua"),
-            base("").appendSibling(obf('n')).appendText("ecauqua"),
-            base("n").appendSibling(obf('e')).appendText("cauqua"),
-            base("ne").appendSibling(obf('c')).appendText("auqua"),
-            base("nec").appendSibling(obf('a')).appendText("uqua"),
-            base("neca").appendSibling(obf('u')).appendText("qua"),
-            base("necau").appendSibling(obf('q')).appendText("ua"),
-            base("necauq").appendSibling(obf('u')).appendText("a"),
-            base("necauqu").appendSibling(obf('a')),
+            base("").append(obf('n')).appendString("ecauqua"),
+            base("n").append(obf('e')).appendString("cauqua"),
+            base("ne").append(obf('c')).appendString("auqua"),
+            base("nec").append(obf('a')).appendString("uqua"),
+            base("neca").append(obf('u')).appendString("qua"),
+            base("necau").append(obf('q')).appendString("ua"),
+            base("necauq").append(obf('u')).appendString("a"),
+            base("necauqu").append(obf('a')),
     };
 
     private static final UUID NECAUQUA = new UUID(0xf98e93652c5248c5L, 0x86476662f70b7e3dL);
@@ -63,7 +63,7 @@ public final class Eggs {
     @SubscribeEvent
     public static void on(PlayerEvent.NameFormat e) {
         if (NECAUQUA.equals(e.getPlayer().getGameProfile().getId())) {
-            e.setDisplaynameComponent(USERNAME_VARIATIONS[0]);
+            e.setDisplayname(USERNAME_VARIATIONS[0]);
         }
     }
 
@@ -76,7 +76,10 @@ public final class Eggs {
         public static void on(FMLClientSetupEvent e) {
             Minecraft mc = Minecraft.getInstance();
             mc.ingameGUI.chatListeners.get(ChatType.CHAT)
-                    .add(0, (type, message) -> {
+                    .add(0, (type, message, sender) -> {
+                        if (!NECAUQUA.equals(sender)) {
+                            return;
+                        }
                         if ((!(message instanceof TranslationTextComponent))) {
                             return;
                         }
@@ -85,31 +88,24 @@ public final class Eggs {
                         if (!"chat.type.text".equals(translated.getKey()) || args.length != 2 || !(args[0] instanceof StringTextComponent)) {
                             return;
                         }
-                        StringTextComponent firstArg = (StringTextComponent) args[0];
-                        if (!"necauqua".equals(firstArg.getString())) {
-                            return;
-                        }
                         int idx = ThreadLocalRandom.current().nextInt(12);
-                        ITextComponent replacement = USERNAME_VARIATIONS[idx >= 8 ? 0 : idx + 1].deepCopy();
+                        IFormattableTextComponent replacement = USERNAME_VARIATIONS[idx >= 8 ? 0 : idx + 1].deepCopy();
 
-                        Style style = firstArg.getStyle().createDeepCopy();
-
-                        ClientPlayerEntity observer = mc.player;
+                        PlayerEntity observer = mc.player;
                         if (observer != null) {
-                            ITextComponent text = new StringTextComponent("Trying to peep at\nmy entity, ")
-                                    .appendSibling(observer.getDisplayName())
-                                    .appendText("?\n\n   ")
-                                    .appendSibling(new StringTextComponent("Naughty.").applyTextStyle(ITALIC));
-                            style.setHoverEvent(new HoverEvent(SHOW_TEXT, text));
+                            IFormattableTextComponent text = new StringTextComponent("Trying to peep at\nmy entity, ")
+                                    .append(observer.getDisplayName())
+                                    .appendString("?\n\n   ")
+                                    .append(new StringTextComponent("Naughty.").mergeStyle(ITALIC));
+                            replacement.mergeStyle(Style.EMPTY.setHoverEvent(new HoverEvent(SHOW_TEXT, text)));
                         }
 
-                        style.setParentStyle(replacement.getStyle());
-                        replacement.setStyle(style);
+                        replacement.mergeStyle(((StringTextComponent) args[0]).getStyle());
 
                         args[0] = replacement;
 
                         // force it to get reinited so its children are recreated with the new argument
-                        translated.lastTranslationUpdateTimeInMilliseconds = -1;
+                        translated.field_240756_i_ = null;
                     });
         }
     }
@@ -141,13 +137,9 @@ public final class Eggs {
             return;
         }
         authorPlayer = player;
-        if (cachedCape != null) {
-            return;
+        if (cachedCape == null) {
+            cachedCape = Minecraft.getInstance().getSkinManager()
+                    .loadSkin(new MinecraftProfileTexture("https://necauqua.dev/images/cape.png", emptyMap()), Type.CAPE);
         }
-        Minecraft.getInstance().getSkinManager().loadSkin(
-                new MinecraftProfileTexture("https://necauqua.dev/images/cape.png", emptyMap()),
-                Type.CAPE,
-                (type, resourceLocation, _profileTexture) -> cachedCape = resourceLocation
-        );
     }
 }

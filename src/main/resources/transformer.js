@@ -29,7 +29,7 @@ function initializeCoreMod() {
         'unconditional breaking speed': {
             target: {
                 'type': 'CLASS',
-                'name': 'net.minecraft.block.Block'
+                'name': 'net.minecraft.block.AbstractBlock'
             },
             transformer: function(classNode) {
                 var method = findMethod(classNode.methods, {

@@ -47,12 +47,17 @@ public final class Config {
     @SubscribeEvent
     public static void on(ModConfigEvent e) { // on both loading and reloading events, huh
         ModConfig config = e.getConfig();
+        CommentedConfig configData = config.getConfigData();
+        if (configData == null) {
+            return;
+        }
+
         switch (config.getType()) {
             case CLIENT:
-                load(Client.class, config.getConfigData());
+                load(Client.class, configData);
                 break;
             case SERVER:
-                load(Config.class, config.getConfigData());
+                load(Config.class, configData);
                 break;
         }
     }

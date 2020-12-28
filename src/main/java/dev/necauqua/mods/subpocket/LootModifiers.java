@@ -7,23 +7,24 @@ package dev.necauqua.mods.subpocket;
 
 import com.google.common.collect.Sets;
 import com.google.gson.JsonObject;
+import net.minecraft.item.ItemStack;
+import net.minecraft.loot.LootContext;
+import net.minecraft.loot.LootPool;
+import net.minecraft.loot.TableLootEntry;
+import net.minecraft.loot.conditions.ILootCondition;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.storage.loot.LootContext;
-import net.minecraft.world.storage.loot.LootPool;
-import net.minecraft.world.storage.loot.TableLootEntry;
-import net.minecraft.world.storage.loot.conditions.ILootCondition;
-import net.minecraft.world.storage.loot.conditions.LootConditionManager;
 import net.minecraftforge.common.loot.GlobalLootModifierSerializer;
-import net.minecraftforge.common.loot.IGlobalLootModifier;
+import net.minecraftforge.common.loot.LootModifier;
 import net.minecraftforge.event.LootTableLoadEvent;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
-import java.util.function.Predicate;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 import static dev.necauqua.mods.subpocket.Subpocket.ns;
@@ -52,8 +53,24 @@ public final class LootModifiers {
                 .build());
     }
 
+    private static final class ClearDropsModifier extends LootModifier {
+        private ClearDropsModifier(ILootCondition[] conditions) {
+            super(conditions);
+        }
+
+        @Nonnull
+        @Override
+        protected List<ItemStack> doApply(List<ItemStack> generatedLoot, LootContext context) {
+            return new ArrayList<>();
+        }
+
+        private ILootCondition[] getConditions() {
+            return conditions;
+        }
+    }
+
     @EventBusSubscriber(modid = MODID, bus = Bus.MOD)
-    private static final class ClearDropsModifierSerializer extends GlobalLootModifierSerializer<IGlobalLootModifier> {
+    private static final class ClearDropsModifierSerializer extends GlobalLootModifierSerializer<ClearDropsModifier> {
 
         @SubscribeEvent
         public static void on(RegistryEvent.Register<GlobalLootModifierSerializer<?>> evt) {
@@ -61,9 +78,13 @@ public final class LootModifiers {
         }
 
         @Override
-        public IGlobalLootModifier read(ResourceLocation location, JsonObject object, ILootCondition[] conditions) {
-            Predicate<LootContext> combined = LootConditionManager.and(conditions);
-            return (generatedLoot, context) -> combined.test(context) ? new ArrayList<>() : generatedLoot;
+        public ClearDropsModifier read(ResourceLocation location, JsonObject object, ILootCondition[] conditions) {
+            return new ClearDropsModifier(conditions);
+        }
+
+        @Override
+        public JsonObject write(ClearDropsModifier instance) {
+            return makeConditions(instance.getConditions());
         }
     }
 }

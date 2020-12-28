@@ -11,6 +11,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.effect.LightningBoltEntity;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -32,7 +33,6 @@ import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
-import net.minecraft.world.dimension.DimensionType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.RegistryEvent;
@@ -171,7 +171,7 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
         @SubscribeEvent
         public static void on(PlayerEvent.BreakSpeed e) {
             PlayerEntity player = e.getPlayer();
-            if (player.dimension == DimensionType.THE_END
+            if (player.world.getDimensionKey() == World.THE_END
                     && e.getState().getBlock() == Blocks.ENDER_CHEST
                     && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE
                     && player.world.getGameTime() % 20 == 0
@@ -183,7 +183,7 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
         @SubscribeEvent
         public static void on(BlockEvent.BreakEvent e) {
             PlayerEntity player = e.getPlayer();
-            if (player.dimension != DimensionType.THE_END
+            if (player.world.getDimensionKey() == World.THE_END
                     || e.getState().getBlock() != Blocks.ENDER_CHEST
                     || player.getHeldItemMainhand().getItem() != SubspatialKeyItem.INSTANCE) {
                 return;
@@ -197,7 +197,9 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
                 return;
             }
             BlockPos p = e.getPos();
-            LightningBoltEntity lightning = new LightningBoltEntity(world, p.getX(), p.getY(), p.getZ(), false);
+            LightningBoltEntity lightning = EntityType.LIGHTNING_BOLT.create(world);
+            assert lightning != null; // wtf
+            lightning.setPosition(p.getX(), p.getY(), p.getZ());
             world.addEntity(lightning);
             storage.unlock();
             Network.syncToClient(player);
@@ -217,7 +219,7 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
             return (hardness >= 0.0F || Config.allowBreakingUnbreakable)
                     && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE
                     && (state.getBlock() != Blocks.ENDER_CHEST
-                    || player.dimension != DimensionType.THE_END
+                    || player.world.getDimensionKey() != World.THE_END
                     || SubpocketCapability.get(player).isUnlocked());
         }
     }

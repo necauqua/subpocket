@@ -22,7 +22,6 @@ import net.minecraft.client.renderer.model.ModelResourceLocation;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexFormat;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
@@ -30,6 +29,8 @@ import net.minecraft.item.Items;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.ForgeHooksClient;
@@ -40,7 +41,10 @@ import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static com.mojang.blaze3d.platform.GlStateManager.LogicOp.XOR;
 import static dev.necauqua.mods.subpocket.Subpocket.ns;
@@ -50,10 +54,16 @@ import static java.lang.String.format;
 import static net.minecraft.client.renderer.model.ItemCameraTransforms.TransformType.GUI;
 import static net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX;
 import static net.minecraft.inventory.container.PlayerContainer.LOCATION_BLOCKS_TEXTURE;
+import static net.minecraft.util.text.TextFormatting.BOLD;
+import static net.minecraft.util.text.TextFormatting.DARK_PURPLE;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
 
+// all of the direct mode operations
+// funny how MC itself uses all of them in item rendering
+// so I am still not the odd one out yet
+@SuppressWarnings("deprecation")
 @OnlyIn(Dist.CLIENT)
 public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
 
@@ -93,8 +103,8 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
     // purely to make intellij shut up lol
     private Minecraft mc;
 
-    public SubpocketScreen(SubpocketContainer container, PlayerInventory playerInv, ITextComponent name) {
-        super(container, playerInv, name);
+    public SubpocketScreen(SubpocketContainer container, PlayerInventory playerInv, ITextComponent title) {
+        super(container, playerInv, title);
         this.container = container;
         storage = container.getStorage();
         stackSizeMode = storage.getStackSizeMode();
@@ -121,7 +131,7 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+    protected void drawGuiContainerBackgroundLayer(MatrixStack matrixStack, float partialTicks, int x, int y) {
         // get global (not downscaled) mouse pos and 'downscale' it to floats, keeping precision
         localX = (float) (mc.mouseHelper.getMouseX() / scale - guiLeft - X_OFF);
         localY = (float) (mc.mouseHelper.getMouseY() / scale - guiTop - Y_OFF);
@@ -138,7 +148,7 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         }
 
         mc.getTextureManager().bindTexture(TEXTURE);
-        blit(guiLeft, guiTop, 0, 0, xSize, ySize);
+        blit(matrixStack, guiLeft, guiTop, 0, 0, xSize, ySize);
 
         // left it for fun, this is a "debug mode", heh (although it did help me a lot)
         if (debug) {
@@ -177,12 +187,12 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
 
         if (debug) {
             if (!underMouse.isEmpty() && underMouse != dragging) {
-                drawStack(underMouse, true);
+                drawStack(matrixStack, underMouse, true);
             }
         } else {
             for (ISubpocketStack stack : storage) {
                 if (stack != dragging) { // dragged stack is drawn separately
-                    drawStack(stack, true);
+                    drawStack(matrixStack, stack, true);
                 }
             }
         }
@@ -194,7 +204,7 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
                     MathHelper.clamp(localY + draggingOffY, draggingOffY, HEIGHT + draggingOffY),
                     0
             );
-            drawStack(dragging, false);
+            drawStack(matrixStack, dragging, false);
             RenderSystem.popMatrix();
         }
 
@@ -203,52 +213,73 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         RenderHelper.disableStandardItemLighting();
     }
 
+    @Override
+    protected void drawGuiContainerForegroundLayer(MatrixStack matrixStack, int x, int y) {
+        // prevent it from drawing the title somewhere
+    }
+
     private boolean shouldntDrawTooltip() {
         return underMouse.isEmpty() || mc.player == null || !mc.player.inventory.getItemStack().isEmpty();
     }
 
-    public void render(int mouseX, int mouseY, float partialTicks) {
-        renderBackground();
-        super.render(mouseX, mouseY, partialTicks);
+    @Override
+    public void render(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
+        renderBackground(matrixStack);
+        super.render(matrixStack, mouseX, mouseY, partialTicks);
 
         if (debug && mouseInside) {
-            List<String> lines = new ArrayList<>();
-            lines.add("§l§5debug:");
-            lines.add(format("scale factor: %.2f", scale));
-            lines.add(format("local mouse coords: [%.2f, %.2f]", localX, localY));
+            List<ITextComponent> lines = new ArrayList<>();
+
+            lines.add(new StringTextComponent("debug:").mergeStyle(DARK_PURPLE, BOLD));
+            lines.add(new StringTextComponent(format("scale factor: %.2f", scale)));
+            lines.add(new StringTextComponent(format("local mouse coords: [%.2f, %.2f]", localX, localY)));
+
             if (usePixelPicking) {
-                lines.add(format("color under mouse: [%d, %d, %d]", underMouseColor[0] & 0xff, underMouseColor[1] & 0xff, underMouseColor[2] & 0xff));
+                lines.add(new StringTextComponent(format("color under mouse: [%d, %d, %d]",
+                        underMouseColor[0] & 0xff,
+                        underMouseColor[1] & 0xff,
+                        underMouseColor[2] & 0xff)));
             } else {
-                lines.add(format("expected color: [%d, %d, %d]",
+                lines.add(new StringTextComponent(format("expected color: [%d, %d, %d]",
                         underMouseIndex >> 16 & 0xff,
                         underMouseIndex >> 8 & 0xff,
-                        underMouseIndex & 0xff));
+                        underMouseIndex & 0xff)));
             }
-            lines.add(format("computed index: %d", underMouseIndex));
+
+            lines.add(new StringTextComponent(format("color under mouse: [%d, %d, %d]", underMouseColor[0] & 0xff, underMouseColor[1] & 0xff, underMouseColor[2] & 0xff)));
+
+            if (underMouseIndex != -1) {
+                lines.add(new StringTextComponent(format("computed index: %d", underMouseIndex)));
+            }
+
             if (!underMouse.isEmpty()) {
-                lines.add(format("hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY()));
+                lines.add(new StringTextComponent(format("hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY())));
             }
-            GuiUtils.drawHoveringText(lines, guiLeft + X_OFF - 10, guiTop + HEIGHT + Y_OFF + 20, width, height, -1, font);
+            GuiUtils.drawHoveringText(matrixStack, lines, guiLeft + X_OFF - 10, guiTop + HEIGHT + Y_OFF + 20, width, height, -1, font);
         }
 
-        renderHoveredToolTip(mouseX, mouseY);
+        renderHoveredTooltip(matrixStack, mouseX, mouseY);
 
         if (shouldntDrawTooltip()) {
             return;
         }
 
         ItemStack ref = underMouse.getRef();
-        List<String> tooltip = getTooltipFromItem(ref);
+        List<ITextComponent> tooltip = getTooltipFromItem(ref);
 
         if (underMouse.getCount().compareTo(BigInteger.ONE) > 0) {
-            tooltip.add(1, I18n.format("gui.subpocket:it.quantity",
+            tooltip.add(1, new TranslationTextComponent("gui.subpocket:it.quantity",
                     hasShiftDown() ? underMouse.getCount().toString() : underMouse.getShortNumberString()));
         }
         FontRenderer font = ref.getItem().getFontRenderer(ref);
-        GuiUtils.drawHoveringText(ref, tooltip, mouseX + 12, mouseY, width, height, -1, font != null ? font : this.font);
+        GuiUtils.drawHoveringText(ref, matrixStack, tooltip, mouseX + 12, mouseY, width, height, -1, font != null ? font : this.font);
     }
 
-    private void drawStack(ISubpocketStack stack, boolean translate) {
+    private void drawStack(MatrixStack matrixStack, ISubpocketStack stack, boolean translate) {
+        if (mc.player == null) {
+            return;
+        }
+
         ItemStack ref = stack.getRef();
 
         // push-translate-renderAt00-pop is so that we can render at float coords
@@ -264,7 +295,7 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
             RenderSystem.enableColorLogicOp();
             RenderSystem.logicOp(XOR);
             mc.getTextureManager().bindTexture(TEXTURE);
-            blit(-1, -1, 203, 0, 18, 18);
+            blit(matrixStack, -1, -1, 203, 0, 18, 18);
             RenderSystem.disableColorLogicOp();
         }
         itemRenderer.renderItemOverlayIntoGUI(font, ref, 0, 0,
@@ -374,7 +405,7 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
     }
 
     private void findStackUnderMouse() {
-        if (!mouseInside) {
+        if (!mouseInside || mc.player == null) {
             resetUnderMouseStack();
             return;
         }
@@ -444,37 +475,46 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
             matrixStack.scale(16.0F, -16.0F, 16.0F);
 
             ItemStack ref = stack.getRef();
-            IBakedModel bakedmodel = itemRenderer.getItemModelWithOverrides(ref, null, mc.player);
+            IBakedModel model = itemRenderer.getItemModelWithOverrides(ref, null, mc.player);
 
             if (ref.getItem() == Items.TRIDENT) { // vanilla, wtf
-                bakedmodel = itemRenderer.getItemModelMesher().getModelManager().getModel(new ModelResourceLocation("minecraft:trident#inventory"));
+                model = itemRenderer.getItemModelMesher().getModelManager().getModel(new ModelResourceLocation("minecraft:trident#inventory"));
             }
 
-            bakedmodel = ForgeHooksClient.handleCameraTransforms(matrixStack, bakedmodel, GUI, false);
+            model = ForgeHooksClient.handleCameraTransforms(matrixStack, model, GUI, false);
 
             matrixStack.translate(-0.5D, -0.5D, -0.5D);
 
             IRenderTypeBuffer.Impl bufferSource = Minecraft.getInstance().getRenderTypeBuffers().getBufferSource();
+            IRenderTypeBuffer wrappedBufferSource = renderType -> {
+                ResourceLocation texture;
+                if (renderType instanceof RenderType.Type) {
+                    texture = ((RenderType.Type) renderType).renderState.texture.texture
+                            .orElse(LOCATION_BLOCKS_TEXTURE);
+                } else {
+                    texture = LOCATION_BLOCKS_TEXTURE;
+                }
+                return bufferSource.getBuffer(SilhouetteRenderType.get(texture));
+            };
 
-            if (bakedmodel.isBuiltInRenderer()) {
-                ref.getItem().getItemStackTileEntityRenderer().render(
+            if (model.isBuiltInRenderer()) {
+                ref.getItem().getItemStackTileEntityRenderer().func_239207_a_(
                         ref,
+                        GUI,
                         matrixStack,
-                        renderType -> {
-                            ResourceLocation texture;
-                            if (renderType instanceof RenderType.Type) {
-                                texture = ((RenderType.Type) renderType).renderState.texture.texture
-                                        .orElse(LOCATION_BLOCKS_TEXTURE);
-                            } else {
-                                texture = LOCATION_BLOCKS_TEXTURE;
-                            }
-                            return bufferSource.getBuffer(SilhouetteRenderType.get(texture));
-                        },
+                        wrappedBufferSource,
                         ITEM_LIGHT,
                         OverlayTexture.NO_OVERLAY);
             } else {
-                IVertexBuilder buffer = bufferSource.getBuffer(SilhouetteRenderType.get(LOCATION_BLOCKS_TEXTURE));
-                itemRenderer.renderModel(bakedmodel, ref, ITEM_LIGHT, OverlayTexture.NO_OVERLAY, matrixStack, buffer);
+                if (model.isLayered()) {
+                    ForgeHooksClient.drawItemLayered(itemRenderer, model, ref, matrixStack, wrappedBufferSource, ITEM_LIGHT, OverlayTexture.NO_OVERLAY, true);
+                } else {
+                    RenderType rendertype = RenderTypeLookup.func_239219_a_(ref, true);
+                    // use the wrapper ourselves here because well who knows
+                    // what render type with what texture the lookup might return
+                    IVertexBuilder buffer = wrappedBufferSource.getBuffer(rendertype);
+                    itemRenderer.renderModel(model, ref, ITEM_LIGHT, OverlayTexture.NO_OVERLAY, matrixStack, buffer);
+                }
             }
             bufferSource.finish(); // semi-immediate mode, but this is how vanilla does it so this is ok
 
