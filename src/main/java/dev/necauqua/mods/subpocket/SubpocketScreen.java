@@ -5,12 +5,13 @@
 
 package dev.necauqua.mods.subpocket;
 
-import com.mojang.blaze3d.platform.GLX;
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocket.StackSizeMode;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.impl.SubpocketStackImpl;
+import net.minecraft.client.MainWindow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
@@ -26,7 +27,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fml.client.config.GuiUtils;
+import net.minecraftforge.fml.client.gui.GuiUtils;
 import org.lwjgl.BufferUtils;
 
 import java.math.BigInteger;
@@ -35,15 +36,15 @@ import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.mojang.blaze3d.platform.GLX.*;
 import static com.mojang.blaze3d.platform.GlStateManager.LogicOp.XOR;
+import static dev.necauqua.mods.subpocket.Subpocket.ns;
 import static dev.necauqua.mods.subpocket.SubpocketContainer.HEIGHT;
 import static dev.necauqua.mods.subpocket.SubpocketContainer.WIDTH;
-import static dev.necauqua.mods.subpocket.Subpocket.ns;
 import static java.lang.String.format;
 import static net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
 
 @OnlyIn(Dist.CLIENT)
 public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
@@ -65,7 +66,7 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
     private float localX = 0, localY = 0;
     private float scale = 1;
     private boolean mouseInside = false;
-    private boolean usePixelPicking = isUsingFBOs() && !Config.Client.disablePixelPicking;
+    private boolean usePixelPicking = !Config.Client.disablePixelPicking;
 
     private ISubpocketStack underMouse = SubpocketStackImpl.EMPTY;
     private int underMouseIndex = -1;
@@ -96,10 +97,10 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
     public void init(Minecraft mc, int width, int height) {
         super.init(mc, width, height);
         this.mc = mc;
-        float newScale = (float) mc.mainWindow.getGuiScaleFactor();
+        float newScale = (float) mc.getMainWindow().getGuiScaleFactor();
         if (newScale != scale) {
             scale = newScale;
-            framebuffer.func_216491_a((int) (WIDTH * scale), (int) (HEIGHT * scale), Minecraft.IS_RUNNING_ON_MAC);
+            framebuffer.resize((int) (WIDTH * scale), (int) (HEIGHT * scale), Minecraft.IS_RUNNING_ON_MAC);
         }
     }
 
@@ -118,11 +119,11 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         // exclude edges here because they behave weirdly sometimes
         mouseInside = localX > 0 && localX < WIDTH && localY > 0 && localY < HEIGHT;
 
-        debug = isUsingFBOs() && glfwGetKey(mc.mainWindow.getHandle(), GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS;
+        debug = glfwGetKey(mc.getMainWindow().getHandle(), GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS;
 
-        if (isUsingFBOs() && !Config.Client.disablePixelPicking) {
-            int leftAltState = glfwGetKey(mc.mainWindow.getHandle(), GLFW_KEY_LEFT_ALT);
-            int rightAltState = glfwGetKey(mc.mainWindow.getHandle(), GLFW_KEY_RIGHT_ALT);
+        if (!Config.Client.disablePixelPicking) {
+            int leftAltState = glfwGetKey(mc.getMainWindow().getHandle(), GLFW_KEY_LEFT_ALT);
+            int rightAltState = glfwGetKey(mc.getMainWindow().getHandle(), GLFW_KEY_RIGHT_ALT);
             usePixelPicking = leftAltState != GLFW_PRESS && rightAltState != GLFW_PRESS;
         }
 
@@ -130,7 +131,7 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         blit(guiLeft, guiTop, 0, 0, xSize, ySize);
 
         // left it for fun, this is a "debug mode", heh (although it did help me a lot)
-        if (debug && isUsingFBOs()) {
+        if (debug) {
             framebuffer.bindFramebufferTexture();
             Tessellator tess = Tessellator.getInstance();
             BufferBuilder bb = tess.getBuffer();
@@ -152,20 +153,19 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
             resetUnderMouseStack();
         }
 
-        RenderHelper.enableGUIStandardItemLighting();
-        GLX.glMultiTexCoord2f(GLX.GL_TEXTURE1, 240.0F, 240.0F);
-        GlStateManager.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-        GlStateManager.enableDepthTest();
+        RenderSystem.glMultiTexCoord2f(GL_TEXTURE2, 240.0F, 240.0F);
+        RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.enableDepthTest();
 
         glEnable(GL_SCISSOR_TEST); // yay scissors!
         glScissor(
                 (int) ((guiLeft + X_OFF) * scale),
-                (int) (mc.mainWindow.getHeight() - (guiTop + Y_OFF + HEIGHT) * scale),
+                (int) (mc.getMainWindow().getHeight() - (guiTop + Y_OFF + HEIGHT) * scale),
                 (int) (WIDTH * scale),
                 (int) (HEIGHT * scale)
         );
 
-        if (isUsingFBOs() && debug) {
+        if (debug) {
             if (!underMouse.isEmpty() && underMouse != dragging) {
                 drawStack(underMouse, true);
             }
@@ -178,19 +178,23 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         }
 
         if (draggingIndex != -1) {
-            GlStateManager.pushMatrix();
-            GlStateManager.translatef( // custom movement for smoothness as here we are in render tick
+            RenderSystem.pushMatrix();
+            RenderSystem.translatef( // custom movement for smoothness as here we are in render tick
                     MathHelper.clamp(localX + draggingOffX, draggingOffX, WIDTH + draggingOffX),
                     MathHelper.clamp(localY + draggingOffY, draggingOffY, HEIGHT + draggingOffY),
                     0
             );
             drawStack(dragging, false);
-            GlStateManager.popMatrix();
+            RenderSystem.popMatrix();
         }
 
         glDisable(GL_SCISSOR_TEST);
 
         RenderHelper.disableStandardItemLighting();
+    }
+
+    private boolean shouldntDrawTooltip() {
+        return underMouse.isEmpty() || mc.player == null || !mc.player.inventory.getItemStack().isEmpty();
     }
 
     public void render(int mouseX, int mouseY, float partialTicks) {
@@ -205,14 +209,14 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
             lines.add(format("color under mouse: [%d, %d, %d]", underMouseColor[0] & 0xff, underMouseColor[1] & 0xff, underMouseColor[2] & 0xff));
             lines.add(format("computed index: %d", underMouseIndex));
             if (!underMouse.isEmpty()) {
-                lines.add(format("§f  hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY()));
+                lines.add(format("hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY()));
             }
             GuiUtils.drawHoveringText(lines, guiLeft + X_OFF - 10, guiTop + HEIGHT + Y_OFF + 20, width, height, -1, font);
         }
 
         renderHoveredToolTip(mouseX, mouseY);
 
-        if (underMouse.isEmpty() || !mc.player.inventory.getItemStack().isEmpty()) {
+        if (shouldntDrawTooltip()) {
             return;
         }
 
@@ -231,8 +235,8 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         ItemStack ref = stack.getRef();
 
         // push-translate-renderAt00-pop is so that we can render at float coords
-        GlStateManager.pushMatrix();
-        GlStateManager.translatef(
+        RenderSystem.pushMatrix();
+        RenderSystem.translatef(
                 guiLeft + X_OFF + (translate ? stack.getX() : 0),
                 guiTop + Y_OFF + (translate ? stack.getY() : 0),
                 0
@@ -240,20 +244,20 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
 
         itemRenderer.renderItemAndEffectIntoGUI(mc.player, ref, 0, 0);
         if (!usePixelPicking && stack == underMouse) {
-            GlStateManager.enableColorLogicOp();
-            GlStateManager.logicOp(XOR);
+            RenderSystem.enableColorLogicOp();
+            RenderSystem.logicOp(XOR);
             mc.getTextureManager().bindTexture(TEXTURE);
             blit(-1, -1, 203, 0, 18, 18);
-            GlStateManager.disableColorLogicOp();
+            RenderSystem.disableColorLogicOp();
         }
         itemRenderer.renderItemOverlayIntoGUI(font, ref, 0, 0,
                 stackSizeMode == StackSizeMode.ALL || stackSizeMode == StackSizeMode.HOVERED && stack == underMouse ? stack.getShortNumberString() : "");
 
-        GlStateManager.popMatrix();
+        RenderSystem.popMatrix();
 
         // this line is literally the best, it fixed the thing i was facing for like 4 days
         // i was thinking of using shaders already when that simple thought made its way into my mind
-        GlStateManager.clear(GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
+        RenderSystem.clear(GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
         // so since no shaders this still could run on calculators
 
         // ^ makes it so that we can render 3d items (like itemblocks) as 2d sprites on top of each other
@@ -296,7 +300,7 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
             super.mouseClicked(mouseX, mouseY, mouseButton);
             return false;
         }
-        if (draggingIndex != -1 || underMouse.isEmpty() || !mc.player.inventory.getItemStack().isEmpty()) {
+        if (draggingIndex != -1 || shouldntDrawTooltip()) {
             return false;
         }
         dragging = underMouse;
@@ -373,23 +377,23 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         framebuffer.bindFramebuffer(true);
 
         // using white instead of black for background so that debug view is more usable eheh
-        GlStateManager.clearColor(1.0F, 1.0F, 1.0F, 1.0F);
-        GlStateManager.clearDepth(1.0F);
-        GlStateManager.clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
+        RenderSystem.clearColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.clearDepth(1.0F);
+        RenderSystem.clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
 
-        GlStateManager.matrixMode(GL_PROJECTION);
-        GlStateManager.loadIdentity();
-        GlStateManager.ortho(
+        RenderSystem.matrixMode(GL_PROJECTION);
+        RenderSystem.loadIdentity();
+        RenderSystem.ortho(
                 0.0D, framebuffer.framebufferWidth,
                 framebuffer.framebufferHeight, 0.0D,
                 1000.0D, 3000.0D
         );
-        GlStateManager.matrixMode(GL_MODELVIEW);
-        GlStateManager.loadIdentity();
-        GlStateManager.translatef(0.0F, 0.0F, -2000.0F);
-        // ^ almost MainWindow#loadGUIRenderMatrix but ortho width/height are changed to ours
+        RenderSystem.matrixMode(GL_MODELVIEW);
+        RenderSystem.loadIdentity();
+        RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
+        // ^ setup same matrix as for MC gui rendering, but ortho width/height are changed to ours
 
-        GlStateManager.scalef(scale, scale, 1); // uh-oh
+        RenderSystem.scalef(scale, scale, 1); // uh-oh
 
         // here i use old and deprecated texture combiners to get alpha from the texture,
         // but set own RGB part for pixel-picking.
@@ -406,8 +410,8 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         // ugh, but i need this so items are drawn without any blending available
         // since all i need is their silhouettes with CONSTANT indexing color(and simple on/off alpha)
         // this works only because GlStateManager exists and sadly mods are not forced to use it
-        GlStateManager.disableBlend();
-        GlStateManager.BLEND.field_179213_a.field_179201_b = true;
+        RenderSystem.disableBlend();
+        GlStateManager.BLEND.blend.currentState = true;
         // but still this hack is second best thing is did after clearing depth buffer one
 
         List<ISubpocketStack> stacksView = storage.getStacksView();
@@ -423,19 +427,19 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
             glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, inputColor);
 
             // float coords same as in drawStack
-            GlStateManager.pushMatrix();
-            GlStateManager.translatef(stack.getX(), stack.getY(), 0);
+            RenderSystem.pushMatrix();
+            RenderSystem.translatef(stack.getX(), stack.getY(), 0);
             itemRenderer.renderItemAndEffectIntoGUI(mc.player, stack.getRef(), 0, 0);
-            GlStateManager.popMatrix();
+            RenderSystem.popMatrix();
 
             // didn't disable depth at all because vanilla enchantment glint
             // uses depth-hacking to work as it works and without depth it breaks
-            GlStateManager.clear(GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
+            RenderSystem.clear(GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
         }
 
         // reset back blending hack
-        GlStateManager.BLEND.field_179213_a.field_179201_b = false;
-        GlStateManager.enableBlend();
+        GlStateManager.BLEND.blend.currentState = false;
+        RenderSystem.enableBlend();
 
         // reset back texture combiner
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -448,7 +452,16 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         );
 
         mc.getFramebuffer().bindFramebuffer(true);
-        mc.mainWindow.loadGUIRenderMatrix(Minecraft.IS_RUNNING_ON_MAC);
+
+        MainWindow window = mc.getMainWindow();
+        RenderSystem.clear(GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
+        RenderSystem.matrixMode(GL_PROJECTION);
+        RenderSystem.loadIdentity();
+        RenderSystem.ortho(0.0D, window.getFramebufferWidth() / window.getGuiScaleFactor(), window.getFramebufferHeight() / window.getGuiScaleFactor(), 0.0D, 1000.0D, 3000.0D);
+        RenderSystem.matrixMode(GL_MODELVIEW);
+        RenderSystem.loadIdentity();
+        RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
+        // ^ setup the matrix back to MC gui rendering (was a method earlier, now it's just inlined it seems like)
 
         outputColor.get(underMouseColor).rewind();
 

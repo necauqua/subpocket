@@ -15,11 +15,9 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.EquipmentSlotType;
 import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.container.ClickType;
-import net.minecraft.inventory.container.Container;
-import net.minecraft.inventory.container.ContainerType;
-import net.minecraft.inventory.container.Slot;
+import net.minecraft.inventory.container.*;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -37,6 +35,7 @@ import java.util.stream.Stream;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 import static dev.necauqua.mods.subpocket.Subpocket.ns;
+import static net.minecraft.inventory.container.PlayerContainer.*;
 
 @EventBusSubscriber(modid = MODID, bus = Bus.MOD)
 public final class SubpocketContainer extends Container {
@@ -44,14 +43,17 @@ public final class SubpocketContainer extends Container {
 
     public static final ContainerType<SubpocketContainer> TYPE = new ContainerType<>(SubpocketContainer::new);
 
-    private static final EquipmentSlotType[] ARMOR_SLOTS = new EquipmentSlotType[]{
-            EquipmentSlotType.HEAD, EquipmentSlotType.CHEST, EquipmentSlotType.LEGS, EquipmentSlotType.FEET
+    private static final ResourceLocation[] ARMOR_SLOT_TEXTURES = new ResourceLocation[]{
+            EMPTY_ARMOR_SLOT_BOOTS,
+            EMPTY_ARMOR_SLOT_LEGGINGS,
+            EMPTY_ARMOR_SLOT_CHESTPLATE,
+            EMPTY_ARMOR_SLOT_HELMET
     };
-    private static final String[] EMPTY_ARMOR_SLOT_NAMES = new String[]{
-            "item/empty_armor_slot_boots",
-            "item/empty_armor_slot_leggings",
-            "item/empty_armor_slot_chestplate",
-            "item/empty_armor_slot_helmet"
+    private static final EquipmentSlotType[] VALID_EQUIPMENT_SLOTS = new EquipmentSlotType[]{
+            EquipmentSlotType.HEAD,
+            EquipmentSlotType.CHEST,
+            EquipmentSlotType.LEGS,
+            EquipmentSlotType.FEET
     };
 
     private final PlayerEntity player;
@@ -85,32 +87,29 @@ public final class SubpocketContainer extends Container {
             }
         }
         for (int k = 0; k < 4; ++k) { // armor slots
-            EquipmentSlotType armorType = ARMOR_SLOTS[k];
+            EquipmentSlotType slotType = VALID_EQUIPMENT_SLOTS[k];
             addSlot(new Slot(playerInv, 39 - k, 8, k * 18 + 26) { // yay for non-existent ArmorSlot class
+                @Override
                 public int getSlotStackLimit() {
                     return 1;
                 }
 
+                @Override
                 public boolean isItemValid(ItemStack stack) {
-                    return stack.canEquip(armorType, player);
+                    return stack.canEquip(slotType, player);
                 }
 
+                @Override
                 public boolean canTakeStack(PlayerEntity player) {
                     ItemStack itemstack = this.getStack();
                     return itemstack.isEmpty()
                             || player.isCreative()
                             || !EnchantmentHelper.hasBindingCurse(itemstack);
                 }
-
-                @OnlyIn(Dist.CLIENT)
-                public String getSlotTexture() {
-                    return EMPTY_ARMOR_SLOT_NAMES[armorType.getIndex()];
-                }
-            });
+            }.setBackground(PlayerContainer.LOCATION_BLOCKS_TEXTURE, ARMOR_SLOT_TEXTURES[slotType.getIndex()]));
         }
-        Slot shieldSlot = new Slot(playerInv, 40, 8, 102);
-        shieldSlot.setBackgroundName("item/empty_armor_slot_shield");
-        addSlot(shieldSlot);
+        addSlot(new Slot(playerInv, 40, 8, 102)
+                .setBackground(PlayerContainer.LOCATION_BLOCKS_TEXTURE, EMPTY_ARMOR_SLOT_SHIELD));
     }
 
     public ISubpocket getStorage() {

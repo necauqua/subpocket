@@ -38,6 +38,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.eventbus.api.Event;
@@ -152,7 +153,7 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
         }
 
         @SubscribeEvent
-        public static void onEntityJoinWorld(EntityJoinWorldEvent event) {
+        public static void on(EntityJoinWorldEvent event) {
             Entity entity = event.getEntity();
             if (!entity.getClass().equals(ItemEntity.class)) {
                 return;
@@ -201,6 +202,14 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
             storage.unlock();
             Network.syncToClient(player);
         }
+
+        @SubscribeEvent
+        public static void on(PlayerInteractEvent.LeftClickBlock e) {
+            if (e.getItemStack().getItem() == INSTANCE) {
+                e.setUseBlock(Event.Result.DENY);
+            }
+        }
+
 
         @SuppressWarnings("unused") // called from the coremod
         public static boolean forceDefaultSpeedCondition(BlockState state, PlayerEntity player, IBlockReader blockReader, BlockPos pos) {
