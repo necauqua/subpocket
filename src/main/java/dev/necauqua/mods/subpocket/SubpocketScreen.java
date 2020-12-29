@@ -5,8 +5,9 @@
 
 package dev.necauqua.mods.subpocket;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.IVertexBuilder;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocket.StackSizeMode;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
@@ -15,33 +16,40 @@ import net.minecraft.client.MainWindow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.RenderHelper;
-import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.model.IBakedModel;
+import net.minecraft.client.renderer.model.ModelResourceLocation;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.client.ForgeHooksClient;
 import net.minecraftforge.fml.client.gui.GuiUtils;
 import org.lwjgl.BufferUtils;
 
+import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import static com.mojang.blaze3d.platform.GlStateManager.LogicOp.XOR;
 import static dev.necauqua.mods.subpocket.Subpocket.ns;
 import static dev.necauqua.mods.subpocket.SubpocketContainer.HEIGHT;
 import static dev.necauqua.mods.subpocket.SubpocketContainer.WIDTH;
 import static java.lang.String.format;
+import static net.minecraft.client.renderer.model.ItemCameraTransforms.TransformType.GUI;
 import static net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_TEX;
+import static net.minecraft.inventory.container.PlayerContainer.LOCATION_BLOCKS_TEXTURE;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
@@ -53,10 +61,12 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
 
     private static final int X_OFF = 35, Y_OFF = 8;
 
-    private static final Framebuffer framebuffer = new Framebuffer(WIDTH, HEIGHT, true, Minecraft.IS_RUNNING_ON_MAC);
+    private static final Framebuffer framebuffer = new Framebuffer(WIDTH, HEIGHT, false, Minecraft.IS_RUNNING_ON_MAC);
+
     private static final FloatBuffer inputColor = BufferUtils.createFloatBuffer(4);
     private static final ByteBuffer outputColor = BufferUtils.createByteBuffer(4);
     private static final int ARMOR_OFFSET = 14;
+    private static final int ITEM_LIGHT = 15728880;
 
     private StackSizeMode stackSizeMode;
 
@@ -206,7 +216,14 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
             lines.add("§l§5debug:");
             lines.add(format("scale factor: %.2f", scale));
             lines.add(format("local mouse coords: [%.2f, %.2f]", localX, localY));
-            lines.add(format("color under mouse: [%d, %d, %d]", underMouseColor[0] & 0xff, underMouseColor[1] & 0xff, underMouseColor[2] & 0xff));
+            if (usePixelPicking) {
+                lines.add(format("color under mouse: [%d, %d, %d]", underMouseColor[0] & 0xff, underMouseColor[1] & 0xff, underMouseColor[2] & 0xff));
+            } else {
+                lines.add(format("expected color: [%d, %d, %d]",
+                        underMouseIndex >> 16 & 0xff,
+                        underMouseIndex >> 8 & 0xff,
+                        underMouseIndex & 0xff));
+            }
             lines.add(format("computed index: %d", underMouseIndex));
             if (!underMouse.isEmpty()) {
                 lines.add(format("hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY()));
@@ -376,11 +393,12 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
         }
         framebuffer.bindFramebuffer(true);
 
-        // using white instead of black for background so that debug view is more usable eheh
+        // using white instead of default black to avoid offetting indiced and so that debug view is nicer
         RenderSystem.clearColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.clearDepth(1.0F);
-        RenderSystem.clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
+        RenderSystem.clear(GL_COLOR_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
 
+        // setup same projection matrix as MC uses for inventory item rendering,
+        // but width/height are changed to ours
         RenderSystem.matrixMode(GL_PROJECTION);
         RenderSystem.loadIdentity();
         RenderSystem.ortho(
@@ -388,36 +406,28 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
                 framebuffer.framebufferHeight, 0.0D,
                 1000.0D, 3000.0D
         );
-        RenderSystem.matrixMode(GL_MODELVIEW);
-        RenderSystem.loadIdentity();
-        RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
-        // ^ setup same matrix as for MC gui rendering, but ortho width/height are changed to ours
+        RenderSystem.matrixMode(GL_MODELVIEW); // don't forget to set the matrix mode back
 
-        RenderSystem.scalef(scale, scale, 1); // uh-oh
-
-        // here i use old and deprecated texture combiners to get alpha from the texture,
-        // but set own RGB part for pixel-picking.
-        // But this can run even on some calculators, yo!
-        // previously i ran this whole thing for every item separately only checking for nonzero alpha
-        // and obviously this new algorithm is much more efficient even by common sense
+        // Here I use old and deprecated texture combiners to get alpha from the texture,
+        // but set own RGB part for pixel-picking
+        // But this can run even on some calculators, nice!
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
         glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
         glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE);
 
         glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_CONSTANT);  // set own RGB from env color
-        glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE); // but keep texture's own alpha
-
-        // ugh, but i need this so items are drawn without any blending available
-        // since all i need is their silhouettes with CONSTANT indexing color(and simple on/off alpha)
-        // this works only because GlStateManager exists and sadly mods are not forced to use it
-        RenderSystem.disableBlend();
-        GlStateManager.BLEND.blend.currentState = true;
-        // but still this hack is second best thing is did after clearing depth buffer one
+        glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE); // but keep textures own alpha
 
         List<ISubpocketStack> stacksView = storage.getStacksView();
+
+        MatrixStack matrixStack = new MatrixStack();
+
+        matrixStack.scale(scale, scale, 1.0F);
+
         for (int i = 0; i < stacksView.size(); i++) {
             ISubpocketStack stack = stacksView.get(i);
 
+            // set the texture combiner constant color to a shade computed from the index
             inputColor
                     .put((i >> 16 & 0xff) / 255.0F)
                     .put((i >> 8 & 0xff) / 255.0F)
@@ -426,42 +436,77 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
                     .rewind();
             glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, inputColor);
 
-            // float coords same as in drawStack
-            RenderSystem.pushMatrix();
-            RenderSystem.translatef(stack.getX(), stack.getY(), 0);
-            itemRenderer.renderItemAndEffectIntoGUI(mc.player, stack.getRef(), 0, 0);
-            RenderSystem.popMatrix();
+            // below is a bunch of dumb inlines and refactors of vanilla rendering routines, seems to work
 
-            // didn't disable depth at all because vanilla enchantment glint
-            // uses depth-hacking to work as it works and without depth it breaks
+            matrixStack.push();
+
+            matrixStack.translate(stack.getX() + 8.0F, stack.getY() + 8.0F, 0.0F);
+            matrixStack.scale(16.0F, -16.0F, 16.0F);
+
+            ItemStack ref = stack.getRef();
+            IBakedModel bakedmodel = itemRenderer.getItemModelWithOverrides(ref, null, mc.player);
+
+            if (ref.getItem() == Items.TRIDENT) { // vanilla, wtf
+                bakedmodel = itemRenderer.getItemModelMesher().getModelManager().getModel(new ModelResourceLocation("minecraft:trident#inventory"));
+            }
+
+            bakedmodel = ForgeHooksClient.handleCameraTransforms(matrixStack, bakedmodel, GUI, false);
+
+            matrixStack.translate(-0.5D, -0.5D, -0.5D);
+
+            IRenderTypeBuffer.Impl bufferSource = Minecraft.getInstance().getRenderTypeBuffers().getBufferSource();
+
+            if (bakedmodel.isBuiltInRenderer()) {
+                ref.getItem().getItemStackTileEntityRenderer().render(
+                        ref,
+                        matrixStack,
+                        renderType -> {
+                            ResourceLocation texture;
+                            if (renderType instanceof RenderType.Type) {
+                                texture = ((RenderType.Type) renderType).renderState.texture.texture
+                                        .orElse(LOCATION_BLOCKS_TEXTURE);
+                            } else {
+                                texture = LOCATION_BLOCKS_TEXTURE;
+                            }
+                            return bufferSource.getBuffer(SilhouetteRenderType.get(texture));
+                        },
+                        ITEM_LIGHT,
+                        OverlayTexture.NO_OVERLAY);
+            } else {
+                IVertexBuilder buffer = bufferSource.getBuffer(SilhouetteRenderType.get(LOCATION_BLOCKS_TEXTURE));
+                itemRenderer.renderModel(bakedmodel, ref, ITEM_LIGHT, OverlayTexture.NO_OVERLAY, matrixStack, buffer);
+            }
+            bufferSource.finish(); // semi-immediate mode, but this is how vanilla does it so this is ok
+
+            matrixStack.pop();
+
+            // clear the depth so that everything renders on top of each other in order of this loop
+            // but we still have the depth for 3d items and blocks to be rendered correctly
             RenderSystem.clear(GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
         }
 
-        // reset back blending hack
-        GlStateManager.BLEND.blend.currentState = false;
-        RenderSystem.enableBlend();
-
-        // reset back texture combiner
+        // reset the texture combiner
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
         // read pixel under mouse
         glReadPixels(
-                (int) (localX * scale), (int) ((HEIGHT - localY) * scale),
-                1, 1, GL_RGB, GL_UNSIGNED_BYTE,
+                (int) (localX * scale), (int) ((HEIGHT - localY + 1) * scale),
+                1, 1, GL_RGBA, GL_UNSIGNED_BYTE,
                 outputColor
         );
 
         mc.getFramebuffer().bindFramebuffer(true);
 
-        MainWindow window = mc.getMainWindow();
-        RenderSystem.clear(GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
+        // return the projection matrix to MC defaults (used to be a method, now copying some lines)
         RenderSystem.matrixMode(GL_PROJECTION);
         RenderSystem.loadIdentity();
-        RenderSystem.ortho(0.0D, window.getFramebufferWidth() / window.getGuiScaleFactor(), window.getFramebufferHeight() / window.getGuiScaleFactor(), 0.0D, 1000.0D, 3000.0D);
-        RenderSystem.matrixMode(GL_MODELVIEW);
-        RenderSystem.loadIdentity();
-        RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
-        // ^ setup the matrix back to MC gui rendering (was a method earlier, now it's just inlined it seems like)
+        MainWindow window = mc.getMainWindow();
+        double w = window.getFramebufferWidth() / window.getGuiScaleFactor();
+        double h = window.getFramebufferHeight() / window.getGuiScaleFactor();
+        RenderSystem.ortho(0.0D, w, h, 0.0D, 1000.0D, 3000.0D);
+        RenderSystem.matrixMode(GL_MODELVIEW); // don't forget to set the matrix mode back here tyoo
+
+        // now we are finally free to do whatever so we just compute and set the index
 
         outputColor.get(underMouseColor).rewind();
 
@@ -473,6 +518,31 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
             underMouse = storage.get(underMouseIndex = picked);
         } else { // when we pick the white background
             resetUnderMouseStack();
+        }
+    }
+
+    // just make a class to access protected constants instead of like AT entries and stuff, lol
+    private static final class SilhouetteRenderType extends RenderType {
+
+        private static final Map<ResourceLocation, RenderType> types = new HashMap<>();
+
+        // idk what some of the parameters mean, this is just RenderType.CUTOUT without lighting/shading
+        // that was messing everything up, as well as with default alpha test to keep the original alpha behavior
+        public static RenderType get(@Nullable ResourceLocation texture) {
+            return types.computeIfAbsent(texture, tex -> makeType("subpocket_item_silhouette",
+                    DefaultVertexFormats.BLOCK,
+                    GL_QUADS,
+                    131072,
+                    true,
+                    false,
+                    State.getBuilder()
+                            .texture(tex != null ? new TextureState(tex, false, false) : NO_TEXTURE)
+                            .alpha(DEFAULT_ALPHA)
+                            .build(false)));
+        }
+
+        private SilhouetteRenderType(String name, VertexFormat format, int drawMode, int bufferSize, boolean useDelegate, boolean needsSorting, Runnable setupTask, Runnable clearTask) {
+            super(name, format, drawMode, bufferSize, useDelegate, needsSorting, setupTask, clearTask);
         }
     }
 }
