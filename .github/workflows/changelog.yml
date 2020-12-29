@@ -22,11 +22,11 @@ jobs:
 
       - name: Generate a human changelog
         shell: bash
-        run: ./gradlew -q generateChangelog -PchangelogTemplate=.github/workflows/changelog-template.md > wiki/Changelog.md
+        run: ./gradlew -q generateChangelog --template .github/workflows/changelog-template.md > wiki/Changelog.md
 
       - name: Generate Forge updates.json
         shell: bash
-        run: ./gradlew -q generateForgeUpdates -PupdatesTemplate=.github/workflows/updates-template.json > wiki/updates.json
+        run: ./gradlew -q generateForgeUpdates --template .github/workflows/updates-template.json > wiki/updates.json
 
       - name: Push to wiki
         run: |

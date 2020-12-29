@@ -5,7 +5,7 @@ buildscript {
         maven { url = 'https://maven.necauqua.dev/' }
     }
     dependencies {
-        classpath 'dev.necauqua:necauqua-mod:0.3.1'
+        classpath 'dev.necauqua:necauqua-mod:0.4.1'
     }
 }
 
