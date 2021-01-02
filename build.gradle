@@ -1,11 +1,9 @@
 buildscript {
     repositories {
-        maven { url = 'https://files.minecraftforge.net/maven' }
-        maven { url = 'https://plugins.gradle.org/m2/' }
         maven { url = 'https://maven.necauqua.dev/' }
     }
     dependencies {
-        classpath 'dev.necauqua:necauqua-mod:0.4.1'
+        classpath 'dev.necauqua:necauqua-mod:0.5.0'
     }
 }
 

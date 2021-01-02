@@ -183,7 +183,7 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
         @SubscribeEvent
         public static void on(BlockEvent.BreakEvent e) {
             PlayerEntity player = e.getPlayer();
-            if (player.world.getDimensionKey() == World.THE_END
+            if (player.world.getDimensionKey() != World.THE_END
                     || e.getState().getBlock() != Blocks.ENDER_CHEST
                     || player.getHeldItemMainhand().getItem() != SubspatialKeyItem.INSTANCE) {
                 return;

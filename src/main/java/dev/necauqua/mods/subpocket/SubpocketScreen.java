@@ -246,8 +246,6 @@ public final class SubpocketScreen extends ContainerScreen<SubpocketContainer> {
                         underMouseIndex & 0xff)));
             }
 
-            lines.add(new StringTextComponent(format("color under mouse: [%d, %d, %d]", underMouseColor[0] & 0xff, underMouseColor[1] & 0xff, underMouseColor[2] & 0xff)));
-
             if (underMouseIndex != -1) {
                 lines.add(new StringTextComponent(format("computed index: %d", underMouseIndex)));
             }
