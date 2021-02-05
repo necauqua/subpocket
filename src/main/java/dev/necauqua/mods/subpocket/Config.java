@@ -47,6 +47,9 @@ public final class Config {
     @SubscribeEvent
     public static void on(ModConfigEvent e) { // on both loading and reloading events, huh
         ModConfig config = e.getConfig();
+        if (!MODID.equals(config.getModId())) {
+            return;
+        }
         CommentedConfig configData = config.getConfigData();
         if (configData == null) {
             return;
@@ -65,7 +68,7 @@ public final class Config {
     private static void load(Class<?> holder, CommentedConfig config) {
         try {
             for (Field field : holder.getFields()) {
-                Boolean value = config.get(LOWER_CAMEL.to(LOWER_UNDERSCORE, field.getName()));
+                Object value = config.get(LOWER_CAMEL.to(LOWER_UNDERSCORE, field.getName()));
                 if (value != null) {
                     field.set(null, value);
                 }
@@ -80,7 +83,7 @@ public final class Config {
             for (Field field : holder.getFields()) {
                 String name = LOWER_CAMEL.to(LOWER_UNDERSCORE, field.getName());
                 builder.comment(strings.get("config." + MODID + ":" + name + ".tooltip"))
-                        .translation("config." + MODID + ":subspatial_key_no_despawn")
+                        .translation("config." + MODID + ":" + name)
                         .define(name, field.get(null));
             }
             return builder.build();
