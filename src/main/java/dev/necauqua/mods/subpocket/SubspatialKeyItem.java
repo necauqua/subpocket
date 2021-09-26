@@ -212,15 +212,14 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
             }
         }
 
-
         @SuppressWarnings("unused") // called from the coremod
         public static boolean forceDefaultSpeedCondition(BlockState state, PlayerEntity player, IBlockReader blockReader, BlockPos pos) {
             float hardness = state.getBlockHardness(blockReader, pos);
             return (hardness >= 0.0F || Config.allowBreakingUnbreakable)
-                    && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE
-                    && (state.getBlock() != Blocks.ENDER_CHEST
-                    || player.world.getDimensionKey() != World.THE_END
-                    || SubpocketCapability.get(player).isUnlocked());
+                && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE
+                && (state.getBlock() != Blocks.ENDER_CHEST
+                || player.world.getDimensionKey() != World.THE_END
+                || SubpocketCapability.get(player).isUnlocked());
         }
     }
 }

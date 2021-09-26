@@ -9,13 +9,10 @@ import dev.necauqua.mods.subpocket.api.SubpocketAPI;
 import dev.necauqua.mods.subpocket.impl.SubpocketStackFactoryImpl;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
-import static net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus.MOD;
 
 @Mod(MODID)
-@EventBusSubscriber(modid = MODID, bus = MOD)
 public final class Subpocket {
     public static final String MODID = "subpocket";
 

@@ -21,9 +21,9 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
-import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import javax.annotation.Nullable;
@@ -52,148 +52,148 @@ import static net.minecraft.command.arguments.ItemArgument.item;
 public final class SubpocketCommand {
 
     private static final List<LiteralArgumentBuilder<CommandSource>> SUBCOMMANDS = asList(
-            literal("add")
-                    .then(argument("player", players())
-                            .then(argument("item", item())
+        literal("add")
+            .then(argument("player", players())
+                .then(argument("item", item())
+                    .executes(context -> add(
+                        context.getSource(),
+                        getItem(context, "item").createStack(1, false),
+                        BigInteger.ONE,
+                        getPlayers(context, "player"), 0, 0))
+                    .then(argument("count", bigint(BigInteger.ONE))
+                        .executes(context -> add(
+                            context.getSource(),
+                            getItem(context, "item").createStack(1, false),
+                            getBigInt(context, "count"),
+                            getPlayers(context, "player"), 0, 0))
+                        .then(literal("at")
+                            .then(argument("x", integer(1, SubpocketContainer.WIDTH - 17))
+                                .then(argument("y", integer(1, SubpocketContainer.HEIGHT - 17))
                                     .executes(context -> add(
-                                            context.getSource(),
-                                            getItem(context, "item").createStack(1, false),
-                                            BigInteger.ONE,
-                                            getPlayers(context, "player"), 0, 0))
-                                    .then(argument("count", bigint(BigInteger.ONE))
-                                            .executes(context -> add(
-                                                    context.getSource(),
-                                                    getItem(context, "item").createStack(1, false),
-                                                    getBigInt(context, "count"),
-                                                    getPlayers(context, "player"), 0, 0))
-                                            .then(literal("at")
-                                                    .then(argument("x", integer(1, SubpocketContainer.WIDTH - 17))
-                                                            .then(argument("y", integer(1, SubpocketContainer.HEIGHT - 17))
-                                                                    .executes(context -> add(
-                                                                            context.getSource(),
-                                                                            getItem(context, "item").createStack(1, false),
-                                                                            getBigInt(context, "count"),
-                                                                            getPlayers(context, "player"),
-                                                                            getInteger(context, "x"),
-                                                                            getInteger(context, "y"))))))))),
+                                        context.getSource(),
+                                        getItem(context, "item").createStack(1, false),
+                                        getBigInt(context, "count"),
+                                        getPlayers(context, "player"),
+                                        getInteger(context, "x"),
+                                        getInteger(context, "y"))))))))),
 
-            literal("remove")
-                    .then(argument("player", players())
-                            .then(argument("item", item())
-                                    .executes(context -> remove(
-                                            context.getSource(),
-                                            getItem(context, "item").createStack(1, false),
-                                            BigInteger.ONE,
-                                            getPlayers(context, "player")))
-                                    .then(literal("all")
-                                            .executes(context -> remove(
-                                                    context.getSource(),
-                                                    getItem(context, "item").createStack(1, false),
-                                                    null,
-                                                    getPlayers(context, "player"))))
-                                    .then(argument("count", bigint(BigInteger.ONE))
-                                            .executes(context -> remove(
-                                                    context.getSource(),
-                                                    getItem(context, "item").createStack(1, false),
-                                                    getBigInt(context, "count"),
-                                                    getPlayers(context, "player")))))),
+        literal("remove")
+            .then(argument("player", players())
+                .then(argument("item", item())
+                    .executes(context -> remove(
+                        context.getSource(),
+                        getItem(context, "item").createStack(1, false),
+                        BigInteger.ONE,
+                        getPlayers(context, "player")))
+                    .then(literal("all")
+                        .executes(context -> remove(
+                            context.getSource(),
+                            getItem(context, "item").createStack(1, false),
+                            null,
+                            getPlayers(context, "player"))))
+                    .then(argument("count", bigint(BigInteger.ONE))
+                        .executes(context -> remove(
+                            context.getSource(),
+                            getItem(context, "item").createStack(1, false),
+                            getBigInt(context, "count"),
+                            getPlayers(context, "player")))))),
 
-            literal("clear")
-                    .executes(context -> clear(context.getSource(), singleton(context.getSource().asPlayer())))
-                    .then(argument("player", players())
-                            .executes(context -> clear(context.getSource(), getPlayers(context, "player")))),
+        literal("clear")
+            .executes(context -> clear(context.getSource(), singleton(context.getSource().asPlayer())))
+            .then(argument("player", players())
+                .executes(context -> clear(context.getSource(), getPlayers(context, "player")))),
 
-            literal("move")
-                    .then(argument("player", players())
-                            .then(argument("item", item())
-                                    .then(argument("x", relativeFloat())
-                                            .then(argument("y", relativeFloat())
-                                                    .executes(context -> move(
-                                                            context.getSource(),
-                                                            getItem(context, "item").createStack(1, false),
-                                                            getPlayers(context, "player"),
-                                                            getRelativeFloat(context, "x"),
-                                                            getRelativeFloat(context, "y"))))))),
+        literal("move")
+            .then(argument("player", players())
+                .then(argument("item", item())
+                    .then(argument("x", relativeFloat())
+                        .then(argument("y", relativeFloat())
+                            .executes(context -> move(
+                                context.getSource(),
+                                getItem(context, "item").createStack(1, false),
+                                getPlayers(context, "player"),
+                                getRelativeFloat(context, "x"),
+                                getRelativeFloat(context, "y"))))))),
 
-            literal("unlock")
-                    .executes(context -> unlock(context.getSource(), singleton(context.getSource().asPlayer())))
-                    .then(argument("player", players())
-                            .executes(context -> unlock(context.getSource(), getPlayers(context, "player")))),
+        literal("unlock")
+            .executes(context -> unlock(context.getSource(), singleton(context.getSource().asPlayer())))
+            .then(argument("player", players())
+                .executes(context -> unlock(context.getSource(), getPlayers(context, "player")))),
 
-            literal("lock")
-                    .executes(context -> lock(context.getSource(), singleton(context.getSource().asPlayer())))
-                    .then(argument("player", players())
-                            .executes(context -> lock(context.getSource(), getPlayers(context, "player")))),
+        literal("lock")
+            .executes(context -> lock(context.getSource(), singleton(context.getSource().asPlayer())))
+            .then(argument("player", players())
+                .executes(context -> lock(context.getSource(), getPlayers(context, "player")))),
 
-            literal("open")
-                    .executes(context -> open(context.getSource(), singleton(context.getSource().asPlayer()), false))
-                    .then(argument("player", players())
-                            .executes(context -> open(context.getSource(), getPlayers(context, "player"), false))
-                            .then(literal("force")
-                                    .executes(context -> open(context.getSource(), getPlayers(context, "player"), true))))
+        literal("open")
+            .executes(context -> open(context.getSource(), singleton(context.getSource().asPlayer()), false))
+            .then(argument("player", players())
+                .executes(context -> open(context.getSource(), getPlayers(context, "player"), false))
+                .then(literal("force")
+                    .executes(context -> open(context.getSource(), getPlayers(context, "player"), true))))
 
     );
 
     private static final LiteralArgumentBuilder<CommandSource> HELP =
-            literal("help")
-                    .executes(context -> {
-                        context.getSource().sendFeedback(helpCommandTitle(SubpocketCommand.HELP), true);
-                        context.getSource().sendFeedback(new TranslationTextComponent("command.subpocket:help.desc"), true);
-                        for (LiteralArgumentBuilder<CommandSource> subcommand : SUBCOMMANDS) {
-                            context.getSource().sendFeedback(helpCommandTitle(subcommand), true);
-                            context.getSource().sendFeedback(new TranslationTextComponent("command.subpocket:" + subcommand.getLiteral() + ".desc"), true);
-                        }
-                        return 1;
-                    })
-                    .then(literal("debug")
-                            .executes(context -> {
-                                PlayerEntity player = context.getSource().asPlayer();
+        literal("help")
+            .executes(context -> {
+                context.getSource().sendFeedback(helpCommandTitle(SubpocketCommand.HELP), true);
+                context.getSource().sendFeedback(new TranslationTextComponent("command.subpocket:help.desc"), true);
+                for (LiteralArgumentBuilder<CommandSource> subcommand : SUBCOMMANDS) {
+                    context.getSource().sendFeedback(helpCommandTitle(subcommand), true);
+                    context.getSource().sendFeedback(new TranslationTextComponent("command.subpocket:" + subcommand.getLiteral() + ".desc"), true);
+                }
+                return 1;
+            })
+            .then(literal("debug")
+                .executes(context -> {
+                    PlayerEntity player = context.getSource().asPlayer();
 
-                                NonNullList<ItemStack> tab = NonNullList.create();
-                                for (Item item : ForgeRegistries.ITEMS) {
-                                    item.fillItemGroup(ItemGroup.BUILDING_BLOCKS, tab);
-                                    item.fillItemGroup(ItemGroup.MATERIALS, tab);
-                                    item.fillItemGroup(ItemGroup.MISC, tab);
-                                }
+                    NonNullList<ItemStack> tab = NonNullList.create();
+                    for (Item item : ForgeRegistries.ITEMS) {
+                        item.fillItemGroup(ItemGroup.BUILDING_BLOCKS, tab);
+                        item.fillItemGroup(ItemGroup.MATERIALS, tab);
+                        item.fillItemGroup(ItemGroup.MISC, tab);
+                    }
 
-                                ISubpocket storage = SubpocketCapability.get(player);
-                                for (ItemStack ref : tab) {
-                                    BigInteger number = BigInteger.valueOf(ThreadLocalRandom.current().nextInt(9999) + 1);
-                                    storage.add(SubpocketStackFactoryImpl.INSTANCE.create(ref, number));
-                                }
+                    ISubpocket storage = SubpocketCapability.get(player);
+                    for (ItemStack ref : tab) {
+                        BigInteger number = BigInteger.valueOf(ThreadLocalRandom.current().nextInt(9999) + 1);
+                        storage.add(SubpocketStackFactoryImpl.INSTANCE.create(ref, number));
+                    }
 
-                                Network.syncToClient(player);
-                                return 1;
-                            }));
+                    Network.syncToClient(player);
+                    return 1;
+                }));
 
     private static ITextComponent helpCommandTitle(LiteralArgumentBuilder<CommandSource> subcommand) {
         return new StringTextComponent("/subpocket " + subcommand.getLiteral())
-                .mergeStyle(TextFormatting.GOLD)
-                .appendString(":");
+            .mergeStyle(TextFormatting.GOLD)
+            .appendString(":");
     }
 
     @SubscribeEvent
-    public static void on(FMLServerStartingEvent e) {
+    public static void on(RegisterCommandsEvent e) {
         LiteralArgumentBuilder<CommandSource> subpocket = literal("subpocket")
-                .requires(src -> src.hasPermissionLevel(2));
+            .requires(src -> src.hasPermissionLevel(2));
 
         SUBCOMMANDS.forEach(subcommand ->
-                HELP.then(literal(subcommand.getLiteral())
-                        .executes(context -> {
-                            context.getSource().sendFeedback(new TranslationTextComponent("command.subpocket:" + subcommand.getLiteral() + ".desc"), true);
-                            return 1;
-                        })));
+            HELP.then(literal(subcommand.getLiteral())
+                .executes(context -> {
+                    context.getSource().sendFeedback(new TranslationTextComponent("command.subpocket:" + subcommand.getLiteral() + ".desc"), true);
+                    return 1;
+                })));
 
         subpocket.then(HELP);
         SUBCOMMANDS.forEach(subpocket::then);
 
-        e.getServer().getCommandManager().getDispatcher().register(subpocket);
+        e.getDispatcher().register(subpocket);
     }
 
     private static int add(CommandSource src, ItemStack ref, BigInteger count, Collection<ServerPlayerEntity> players, int x, int y) {
         ISubpocketStack stack = x != 0 || y != 0 ?
-                SubpocketStackFactoryImpl.INSTANCE.create(ref, count, x, y) :
-                SubpocketStackFactoryImpl.INSTANCE.create(ref, count); // use the pseudorandom positioning algorithm from that method
+            SubpocketStackFactoryImpl.INSTANCE.create(ref, count, x, y) :
+            SubpocketStackFactoryImpl.INSTANCE.create(ref, count); // use the pseudorandom positioning algorithm from that method
         for (ServerPlayerEntity player : players) {
             SubpocketCapability.get(player).add(stack);
             Network.syncToClient(player);
@@ -211,8 +211,8 @@ public final class SubpocketCommand {
 
             if (count == null) { // gone functional
                 toRemove = storage.getStacksView().stream()
-                        .filter(s -> s.matches(ref))
-                        .collect(Collectors.toList());
+                    .filter(s -> s.matches(ref))
+                    .collect(Collectors.toList());
                 count = BigInteger.ZERO;
             } else {
                 for (ISubpocketStack stack : storage) {
@@ -240,8 +240,8 @@ public final class SubpocketCommand {
             toRemove.forEach(storage::remove);
             Network.syncToClient(player);
             BigInteger removed = toRemove.stream()
-                    .map(ISubpocketStack::getCount)
-                    .reduce(BigInteger.ZERO, BigInteger::add);
+                .map(ISubpocketStack::getCount)
+                .reduce(BigInteger.ZERO, BigInteger::add);
             src.sendFeedback(new TranslationTextComponent("command.subpocket:remove.success", removed, player.getDisplayName()), true);
             result++;
         }

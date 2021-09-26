@@ -35,7 +35,7 @@ public final class Config {
     public static boolean blockEnderChests = true;
     public static boolean allowBreakingUnbreakable = true;
     public static boolean subspatialKeyFrozen = true;
-    public static boolean subspatialKeyNoDespawn = true;
+    public static boolean subspatialKeyNoDespawn = false;
 
     public static void init() {
         Map<String, String> strings = readDefaultLocaleStrings();
