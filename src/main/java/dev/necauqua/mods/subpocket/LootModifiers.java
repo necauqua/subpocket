@@ -5,14 +5,11 @@
 
 package dev.necauqua.mods.subpocket;
 
-import com.google.common.collect.Sets;
 import com.google.gson.JsonObject;
-import net.minecraft.item.ItemStack;
-import net.minecraft.loot.LootContext;
-import net.minecraft.loot.LootPool;
-import net.minecraft.loot.TableLootEntry;
-import net.minecraft.loot.conditions.ILootCondition;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootContext;
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
 import net.minecraftforge.common.loot.GlobalLootModifierSerializer;
 import net.minecraftforge.common.loot.LootModifier;
 import net.minecraftforge.event.LootTableLoadEvent;
@@ -28,33 +25,36 @@ import java.util.Set;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 import static dev.necauqua.mods.subpocket.Subpocket.ns;
+import static net.minecraft.world.level.storage.loot.LootPool.lootPool;
+import static net.minecraft.world.level.storage.loot.entries.LootTableReference.lootTableReference;
 
 @EventBusSubscriber(modid = MODID)
 public final class LootModifiers {
 
-    private static final Set<String> injectedPools = Sets.newHashSet(
-            "entities/enderman",
-            "chests/stronghold_corridor",
-            "chests/stronghold_crossing",
-            "chests/simple_dungeon"
+    private static final Set<String> injectedPools = Set.of(
+        "entities/enderman",
+        "chests/stronghold_corridor",
+        "chests/stronghold_crossing",
+        "chests/simple_dungeon"
     );
 
     @SubscribeEvent
     public static void on(LootTableLoadEvent e) {
-        ResourceLocation name = e.getName();
-        String path = name.getPath();
+        var name = e.getName();
+        var path = name.getPath();
         if (!"minecraft".equals(name.getNamespace()) || !injectedPools.contains(path)) {
             return;
         }
-        e.getTable().addPool(LootPool.builder()
-                .name("subpocket_injected_pool")
-                .addEntry(TableLootEntry.builder(ns(path.substring(path.indexOf('/') + 1))))
-                .bonusRolls(0.0F, 1.0F)
-                .build());
+        e.getTable().addPool(lootPool()
+            .name("subpocket_injected_pool")
+            .add(lootTableReference(ns(path.substring(path.indexOf('/') + 1))))
+            .bonusRolls(0.0F, 1.0F)
+            .build());
     }
 
     private static final class ClearDropsModifier extends LootModifier {
-        private ClearDropsModifier(ILootCondition[] conditions) {
+
+        private ClearDropsModifier(LootItemCondition[] conditions) {
             super(conditions);
         }
 
@@ -64,7 +64,7 @@ public final class LootModifiers {
             return new ArrayList<>();
         }
 
-        private ILootCondition[] getConditions() {
+        private LootItemCondition[] getConditions() {
             return conditions;
         }
     }
@@ -78,7 +78,7 @@ public final class LootModifiers {
         }
 
         @Override
-        public ClearDropsModifier read(ResourceLocation location, JsonObject object, ILootCondition[] conditions) {
+        public ClearDropsModifier read(ResourceLocation location, JsonObject object, LootItemCondition[] conditions) {
             return new ClearDropsModifier(conditions);
         }
 

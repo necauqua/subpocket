@@ -10,11 +10,10 @@ import com.google.common.collect.Lists;
 import dev.necauqua.mods.subpocket.SubpocketCapability;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.INBT;
-import net.minecraft.nbt.ListNBT;
-import net.minecraft.util.Direction;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.LazyOptional;
 
@@ -32,7 +31,6 @@ public final class SubpocketImpl implements ISubpocket {
 
     private LinkedList<ISubpocketStack> stacks = new LinkedList<>();
     private boolean unlocked = false;
-    private StackSizeMode stackSizeMode = StackSizeMode.ALL;
 
     public SubpocketImpl() {
         onInvalidated(LazyOptional.empty());
@@ -60,16 +58,6 @@ public final class SubpocketImpl implements ISubpocket {
     }
 
     @Override
-    public StackSizeMode getStackSizeMode() {
-        return stackSizeMode;
-    }
-
-    @Override
-    public void setStackSizeMode(StackSizeMode stackSizeMode) {
-        this.stackSizeMode = stackSizeMode;
-    }
-
-    @Override
     @Nonnull
     public List<ISubpocketStack> getStacksView() {
         return Collections.unmodifiableList(stacks);
@@ -94,7 +82,7 @@ public final class SubpocketImpl implements ISubpocket {
         if (stack.isEmpty()) {
             return false;
         }
-        ISubpocketStack matching = find(stack.getRef());
+        var matching = find(stack.getRef());
         if (!matching.isEmpty()) {
             matching.setCount(matching.getCount().add(stack.getCount()));
             elevate(matching);
@@ -110,13 +98,13 @@ public final class SubpocketImpl implements ISubpocket {
         if (stack.isEmpty()) {
             return false;
         }
-        ISubpocketStack matching = find(stack);
+        var matching = find(stack);
         if (!matching.isEmpty()) {
             matching.setCount(matching.getCount().add(BigInteger.valueOf(stack.getCount())));
             elevate(matching);
             return false;
         }
-        ISubpocketStack newStack = SubpocketStackFactoryImpl.INSTANCE.create(stack);
+        var newStack = SubpocketStackFactoryImpl.INSTANCE.create(stack);
         newStack.setBoundStorage(this);
         stacks.add(newStack);
         return true;
@@ -161,33 +149,29 @@ public final class SubpocketImpl implements ISubpocket {
         stacks = Lists.newLinkedList(storage);
         stacks.forEach(s -> s.setBoundStorage(this));
         unlocked = storage.isUnlocked();
-        stackSizeMode = storage.getStackSizeMode();
     }
 
     @Override
-    public CompoundNBT serializeNBT() {
-        CompoundNBT nbt = new CompoundNBT();
-        ListNBT list = new ListNBT();
+    public CompoundTag serializeNBT() {
+        var nbt = new CompoundTag();
+        var list = new ListTag();
         stacks.forEach(s -> list.add(s.serializeNBT()));
         nbt.put("storage", list);
         nbt.putBoolean("unlocked", unlocked);
-        nbt.putByte("stackSizeMode", (byte) stackSizeMode.ordinal());
         return nbt;
     }
 
     @Override
-    public void deserializeNBT(CompoundNBT nbt) {
+    public void deserializeNBT(CompoundTag nbt) {
         clear();
         unlocked = nbt.getBoolean("unlocked");
-        stackSizeMode = StackSizeMode.values()[nbt.getByte("stackSizeMode") % StackSizeMode.values().length];
-        INBT listBase = nbt.get("storage");
-        if (!(listBase instanceof ListNBT)) {
+        var listBase = nbt.get("storage");
+        if (!(listBase instanceof ListTag list)) {
             return;
         }
-        ListNBT list = (ListNBT) listBase;
-        for (int i = 0; i < list.size(); i++) {
-            ISubpocketStack stack = SubpocketStackFactoryImpl.INSTANCE
-                    .create(list.getCompound(i));
+        for (var i = 0; i < list.size(); i++) {
+            var stack = SubpocketStackFactoryImpl.INSTANCE
+                .create(list.getCompound(i));
             if (stack.isEmpty()) {
                 continue; // in case we had some kind of malformed nbt, idk
             }

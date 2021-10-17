@@ -6,12 +6,11 @@ import com.mojang.authlib.exceptions.AuthenticationUnavailableException;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture.Type;
 import com.mojang.authlib.minecraft.MinecraftSessionService;
-import net.minecraft.client.resources.SkinManager;
+import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -26,28 +25,23 @@ import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 import static dev.necauqua.mods.subpocket.eggs.Name.NECAUQUA;
 import static java.util.Collections.emptyMap;
 
-@OnlyIn(Dist.CLIENT)
 @EventBusSubscriber(value = Dist.CLIENT, modid = MODID, bus = Bus.MOD)
+@OnlyIn(Dist.CLIENT)
 public final class Cape {
 
     private static final List<UUID> CAPED = Collections.singletonList(NECAUQUA);
 
     @SubscribeEvent
     public static void on(FMLClientSetupEvent e) {
-        // avoid colliding with similar code from that mod (whenever I update it)
-        if (ModList.get().isLoaded("chiseled_me")) {
-            return;
-        }
-        // and optionally registering the event handlers for chat as well (meh, whatever)
         MinecraftForge.EVENT_BUS.register(Name.class);
 
-        SkinManager skinManager = e.getMinecraftSupplier().get().getSkinManager();
-        MinecraftSessionService original = skinManager.sessionService;
+        var skinManager = Minecraft.getInstance().getSkinManager();
+        var original = skinManager.sessionService;
         skinManager.sessionService = new MinecraftSessionService() {
 
             @Override
             public Map<Type, MinecraftProfileTexture> getTextures(GameProfile profile, boolean requireSecure) {
-                Map<Type, MinecraftProfileTexture> textures = original.getTextures(profile, requireSecure);
+                var textures = original.getTextures(profile, requireSecure);
                 if (CAPED.contains(profile.getId())) {
                     textures.put(Type.CAPE, new MinecraftProfileTexture("https://necauqua.dev/images/cape.png", emptyMap()));
                 }

@@ -5,8 +5,9 @@
 
 package dev.necauqua.mods.subpocket.api;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.capabilities.ICapabilitySerializable;
 
 import javax.annotation.Nonnull;
@@ -14,24 +15,26 @@ import java.util.List;
 
 /**
  * Implementation of this interface does NOTHING network-related!<br>
- * You should call methods on both sides to use this properly and not desync.
+ * You should either work in a context where equivalent code is executed on both sides
+ * (which is still desync-prone) or work on the server side and use the {@link ISubpocketAPI#syncToClient(ServerPlayer)}
+ * API.
  * <p>
  * Example usage:
  * <pre>
  * &#64;CapabilityInject(ISubpocket.class)
  * public static Capability&lt;ISubpocket&gt; SUBPOCKET_CAPABILITY;
  *
- * void method(PlayerEntity player) {
- *     if (SUBPOCKET_STORAGE_CAPABILITY != null) { // if the mod was loaded
- *         player.getCapability(SUBPOCKET_STORAGE_CAPABILITY)
- *             .ifPresent(storage -&gt; {
+ * void method(Player player) {
+ *     if (SUBPOCKET_CAPABILITY != null) { // if the mod was loaded
+ *         player.getCapability(SUBPOCKET_CAPABILITY)
+ *             .ifPresent(storage -&gt; { // should always be present, but we're safe
  *                 doStuffWith(storage);
  *             });
  *     }
  * }
  * </pre>
  **/
-public interface ISubpocket extends ICapabilitySerializable<CompoundNBT>, Iterable<ISubpocketStack> {
+public interface ISubpocket extends ICapabilitySerializable<CompoundTag>, Iterable<ISubpocketStack> {
 
     /**
      * Returns the state of the players subpocket.
@@ -50,16 +53,6 @@ public interface ISubpocket extends ICapabilitySerializable<CompoundNBT>, Iterab
      * Unlocks the subpocket, making it available to the player.
      */
     void unlock();
-
-    /**
-     * Returns current display of stack sizes set by the subpocket owner.
-     */
-    StackSizeMode getStackSizeMode();
-
-    /**
-     * Sets the display of stack sizes for the subpocket owner.
-     */
-    void setStackSizeMode(StackSizeMode stackSizeMode);
 
     /**
      * Returns an unmodifiable view of current stacks in this storage.
@@ -111,7 +104,7 @@ public interface ISubpocket extends ICapabilitySerializable<CompoundNBT>, Iterab
      * item from the subpocket.
      *
      * @param stack stack to be removed.
-     * @return true if that stack was in this storage and it was removed.
+     * @return true if that stack was in this storage, and it was removed.
      **/
     boolean remove(@Nonnull ISubpocketStack stack);
 
@@ -145,26 +138,4 @@ public interface ISubpocket extends ICapabilitySerializable<CompoundNBT>, Iterab
      * @param storage old storage.
      **/
     void cloneFrom(@Nonnull ISubpocket storage);
-
-    /**
-     * Variants of how stack sizes can be shown in the subpocket field.
-     */
-    enum StackSizeMode {
-        /**
-         * Show all numbers. The default, works nicely at the beggining
-         * where there is not a lot of item types stored, but very
-         * obstructive later on.
-         */
-        ALL,
-        /**
-         * Show the number only for hovered items, matter of preference
-         * between this or {@link #NONE}.
-         */
-        HOVERED,
-        /**
-         * Don't show numbers at items at all, only way to know the number
-         * of items in subpocket stack is by the tooltip.
-         */
-        NONE,
-    }
 }

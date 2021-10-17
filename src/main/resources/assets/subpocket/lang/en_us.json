@@ -1,32 +1,25 @@
 {
-    "config.subpocket:disable_pixel_picking": "Disable pixel picking",
-    "config.subpocket:disable_pixel_picking.tooltip": "Disable the pixel picking of items? (alt-mode always on)",
-
     "config.subpocket:block_ender_chests": "Block Ender Chests",
     "config.subpocket:block_ender_chests.tooltip": "Block usage of ender chests when subpocket is active?",
-
     "config.subpocket:allow_breaking_unbreakable": "Allow breaking unbreakable blocks",
     "config.subpocket:allow_breaking_unbreakable.tooltip": "Allow the subspatial key to break unbreakable blocks (bedrock, barriers etc.)?",
-
     "config.subpocket:subspatial_key_frozen": "Subspatial key frozen",
-    "config.subpocket:subspatial_key_frozen.tooltip": "Make the subspatial key 'frozen in time'",
-
+    "config.subpocket:subspatial_key_frozen.tooltip": "Make the subspatial key 'frozen in time' (immovable, indestructible, etc.)",
     "config.subpocket:subspatial_key_no_despawn": "Subspatial key no despawn",
-    "config.subpocket:subspatial_key_no_despawn.tooltip": "Make the subspatial key not despawn (you may want to set this to false in multiplayer)",
-
-
+    "config.subpocket:subspatial_key_no_despawn.tooltip": "Make the subspatial key not despawnable (you may want to keep this false on a multiplayer server)",
+    "config.subpocket:stack_count_condition": "Stack count showing condition",
+    "config.subpocket:stack_count_condition.tooltip": "Change when stack counts are shown - always, on hover or never.\nCan be changed from the little panel that appears when holding Tab (first one).\n",
+    "config.subpocket:stack_count_size": "Stack count font size",
+    "config.subpocket:stack_count_size.tooltip": "Change the font size for the stack count - large (default miencraft), mixed (small when length is more than 2 symbols) or small (1/2 of default minecraft).\nCan be changed from the little panel that appears when holding Tab (second one).\n",
+    "config.subpocket:picking_mode": "Picking mode",
+    "config.subpocket:picking_mode.tooltip": "When set to alternative, forces the 16x16 rectangle item picking to always happen instead of pixel picking.\nTemporarily enabled while holding Alt. Can be changed from the little panel that appears when holding Tab (third one).\n",
+    "config.subpocket:overflow_type": "Overflow type",
+    "config.subpocket:overflow_type.tooltip": "How to show the short number form in rare scenarios when it rolls over the legend.\nScientific uses Clicker Heroes scientific notation, classic shows the string 'ALOT' like it was in previous subpocket versions.\n",
     "item.subpocket:key": "Subspatial Key",
     "item.subpocket:key.desc": "§oStrange and extremely rare artifact from an unknown dimension...\n\n§o§8It was discovered that it can destroy ANY block with the same basic speed, although it leaves no drops",
-
-
     "gui.subpocket:it.quantity": "§7╘ quantity: §o%s",
-
-
     "popup.subpocket:blocked_ender_chest": "The Ender Link of your soul was dissolved, you are free...",
-
-
     "command.subpocket:help.desc": "Shows list of subcommands with their short descriptions",
-
     "command.subpocket:add.desc": "Adds specified item to players subpocket (ignoring it being available or not to the player)",
     "command.subpocket:add.success": "Added %sx%s to %s's subpocket",
 

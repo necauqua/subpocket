@@ -5,17 +5,14 @@
 
 package dev.necauqua.mods.subpocket;
 
-import dev.necauqua.mods.subpocket.api.ISubpocket.StackSizeMode;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.play.ClientPlayNetHandler;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.network.play.client.CCustomPayloadPacket;
-import net.minecraft.network.play.server.SCustomPayloadPlayPacket;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
+import net.minecraft.network.protocol.game.ServerboundCustomPayloadPacket;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -23,10 +20,9 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.loading.JarVersionLookupHandler;
-import net.minecraftforge.fml.network.NetworkEvent.ClientCustomPayloadEvent;
-import net.minecraftforge.fml.network.NetworkEvent.Context;
-import net.minecraftforge.fml.network.NetworkEvent.ServerCustomPayloadEvent;
-import net.minecraftforge.fml.network.NetworkRegistry;
+import net.minecraftforge.fmllegacy.network.NetworkEvent.ClientCustomPayloadEvent;
+import net.minecraftforge.fmllegacy.network.NetworkEvent.ServerCustomPayloadEvent;
+import net.minecraftforge.fmllegacy.network.NetworkRegistry;
 import org.apache.logging.log4j.LogManager;
 
 import javax.annotation.Nullable;
@@ -41,13 +37,14 @@ public final class Network {
 
     @SubscribeEvent
     public static void on(FMLCommonSetupEvent e2) {
-        String version = JarVersionLookupHandler.getImplementationVersion(Subpocket.class).orElse("DEBUG");
-        NetworkRegistry.newEventChannel(
-                CHANNEL,
-                () -> version,
-                version::equals,
-                version::equals
-        ).registerObject(Handlers.class);
+        var version = JarVersionLookupHandler.getImplementationVersion(Subpocket.class).orElse("DEBUG");
+        NetworkRegistry.ChannelBuilder
+            .named(new ResourceLocation(MODID, "channel"))
+            .clientAcceptedVersions(version::equals)
+            .serverAcceptedVersions(version::equals)
+            .networkProtocolVersion(() -> version)
+            .eventNetworkChannel()
+            .registerObject(Handlers.class);
     }
 
     // need to be in separate class because of some weird Forge check
@@ -56,10 +53,10 @@ public final class Network {
         @SubscribeEvent
         @OnlyIn(Dist.CLIENT)
         public static void on(ServerCustomPayloadEvent e) {
-            CompoundNBT nbt = e.getPayload().readCompoundTag();
-            Context ctx = e.getSource().get();
+            var nbt = e.getPayload().readNbt();
+            var ctx = e.getSource().get();
             ctx.enqueueWork(() -> {
-                PlayerEntity player = Minecraft.getInstance().player;
+                Player player = Minecraft.getInstance().player;
                 if (player != null) {
                     SubpocketCapability.get(player).deserializeNBT(nbt);
                 } else {
@@ -71,73 +68,51 @@ public final class Network {
 
         @SubscribeEvent
         public static void on(ClientCustomPayloadEvent e) {
-            PacketBuffer payload = e.getPayload();
-            Context ctx = e.getSource().get();
-            ServerPlayerEntity player = ctx.getSender();
+            var payload = e.getPayload();
+            var ctx = e.getSource().get();
+            var player = ctx.getSender();
             if (player == null) {
                 return;
             }
-            switch (payload.readByte()) {
-                case 0:
-                    if (!(player.openContainer instanceof SubpocketContainer)) {
-                        return;
-                    }
-                    SubpocketContainer container = (SubpocketContainer) player.openContainer;
-                    float x = payload.readFloat();
-                    float y = payload.readFloat();
-                    int index = payload.readInt();
-                    byte b = payload.readByte();
-                    if (b == 0) {
-                        ctx.enqueueWork(() -> container.stackMoved(x, y, index));
-                    } else {
-                        ctx.enqueueWork(() -> container.processClick(x, y, new ClickState(b), index));
-                    }
-                    ctx.setPacketHandled(true);
-                    break;
-                case 1:
-                    StackSizeMode stackSizeMode = StackSizeMode.values()[payload.readByte() % StackSizeMode.values().length];
-                    ctx.enqueueWork(() -> SubpocketCapability.get(player).setStackSizeMode(stackSizeMode));
-                    ctx.setPacketHandled(true);
+            if (!(player.containerMenu instanceof SubpocketContainer container)) {
+                return;
             }
+            var x = payload.readFloat();
+            var y = payload.readFloat();
+            var index = payload.readInt();
+            var b = payload.readByte();
+            if (b == 0) {
+                ctx.enqueueWork(() -> container.stackMoved(x, y, index));
+            } else {
+                ctx.enqueueWork(() -> container.processClick(x, y, new ClickState(b), index));
+            }
+            ctx.setPacketHandled(true);
         }
     }
 
-    public static void syncToClient(PlayerEntity player) {
-        if (player instanceof ServerPlayerEntity) {
-            syncToClient((ServerPlayerEntity) player);
+    public static void syncToClient(Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            syncToClient(serverPlayer);
         }
     }
 
-    public static void syncToClient(ServerPlayerEntity player) {
-        PacketBuffer payload = new PacketBuffer(Unpooled.buffer());
-        payload.writeCompoundTag(SubpocketCapability.get(player).serializeNBT());
-        player.connection.sendPacket(new SCustomPayloadPlayPacket(CHANNEL, payload));
+    public static void syncToClient(ServerPlayer player) {
+        var payload = new FriendlyByteBuf(Unpooled.buffer());
+        payload.writeNbt(SubpocketCapability.get(player).serializeNBT());
+        player.connection.send(new ClientboundCustomPayloadPacket(CHANNEL, payload));
     }
 
     @OnlyIn(Dist.CLIENT)
     public static void sendClickToServer(float x, float y, int index, @Nullable ClickState state) {
-        PacketBuffer payload = new PacketBuffer(Unpooled.buffer());
-        payload.writeByte(0);
+        var payload = new FriendlyByteBuf(Unpooled.buffer());
         payload.writeFloat(x);
         payload.writeFloat(y);
         payload.writeInt(index);
         payload.writeByte(state != null ? state.toByte() : 0);
-        ClientPlayNetHandler connection = Minecraft.getInstance().getConnection();
+        var connection = Minecraft.getInstance().getConnection();
         if (connection == null) {
             throw new IllegalStateException("No client-to-server connection");
         }
-        connection.sendPacket(new CCustomPayloadPacket(CHANNEL, payload));
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    public static void sendSetStackSizeModeToServer(StackSizeMode stackSizeMode) {
-        PacketBuffer payload = new PacketBuffer(Unpooled.buffer());
-        payload.writeByte(1);
-        payload.writeByte(stackSizeMode.ordinal());
-        ClientPlayNetHandler connection = Minecraft.getInstance().getConnection();
-        if (connection == null) {
-            throw new IllegalStateException("No client-to-server connection");
-        }
-        connection.sendPacket(new CCustomPayloadPacket(CHANNEL, payload));
+        connection.send(new ServerboundCustomPayloadPacket(CHANNEL, payload));
     }
 }

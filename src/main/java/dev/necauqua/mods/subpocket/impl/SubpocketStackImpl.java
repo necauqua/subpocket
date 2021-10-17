@@ -8,10 +8,10 @@ package dev.necauqua.mods.subpocket.impl;
 import dev.necauqua.mods.subpocket.SubpocketContainer;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
-import net.minecraft.block.Blocks;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,7 +55,7 @@ public final class SubpocketStackImpl implements ISubpocketStack {
     @Override
     @Nonnull
     public ItemStack getRef() {
-        ItemStack copy = ref.copy();
+        var copy = ref.copy();
         if (count.compareTo(BigInteger.valueOf(copy.getMaxStackSize())) > 0) {
             copy.setCount(copy.getMaxStackSize());
         } else {
@@ -66,16 +66,16 @@ public final class SubpocketStackImpl implements ISubpocketStack {
 
     @Override
     public boolean matches(ItemStack stack) {
-        boolean empty = isEmpty();
+        var empty = isEmpty();
         if (empty ^ stack.isEmpty()) {
             return false;
         }
         if (empty) {
             return true;
         }
-        ItemStack copy = ref.copy();
+        var copy = ref.copy();
         copy.setCount(stack.getCount());
-        return ItemStack.areItemStacksEqual(stack, copy);
+        return ItemStack.matches(stack, copy);
     }
 
     @Override
@@ -102,8 +102,8 @@ public final class SubpocketStackImpl implements ISubpocketStack {
         if (n <= 0) {
             return ZEROEMPTY;
         }
-        ItemStack stack = ref.copy();
-        BigInteger size = count.min(BigInteger.valueOf(n));
+        var stack = ref.copy();
+        var size = count.min(BigInteger.valueOf(n));
         setCount(count.subtract(size));
         stack.setCount(size.intValue());
         return stack;
@@ -127,15 +127,14 @@ public final class SubpocketStackImpl implements ISubpocketStack {
 
     @Override
     public void setPos(float x, float y) {
-        this.x = MathHelper.clamp(x, -15, SubpocketContainer.WIDTH - 1);
-        this.y = MathHelper.clamp(y, -15, SubpocketContainer.HEIGHT - 1);
+        this.x = Mth.clamp(x, -15, SubpocketContainer.WIDTH - 1);
+        this.y = Mth.clamp(y, -15, SubpocketContainer.HEIGHT - 1);
     }
 
     @Override
-    public CompoundNBT serializeNBT() {
-        CompoundNBT nbt = new CompoundNBT();
-        CompoundNBT refNbt = new CompoundNBT();
-        ref.write(refNbt);
+    public CompoundTag serializeNBT() {
+        var nbt = new CompoundTag();
+        var refNbt = ref.serializeNBT();
         refNbt.remove("Count"); // eh, but why to store it, huh
         nbt.put("ref", refNbt);
         nbt.putByteArray("count", count.toByteArray());
@@ -145,13 +144,13 @@ public final class SubpocketStackImpl implements ISubpocketStack {
     }
 
     @Override
-    public void deserializeNBT(CompoundNBT nbt) {
-        CompoundNBT refNbt = nbt.getCompound("ref");
+    public void deserializeNBT(CompoundTag nbt) {
+        var refNbt = nbt.getCompound("ref");
         refNbt.putByte("Count", (byte) 1); // as above      ^
-        ref = ItemStack.read(refNbt);
+        ref = ItemStack.of(refNbt);
         count = nbt.contains("count", 7) ?
-                new BigInteger(nbt.getByteArray("count")) :
-                BigInteger.ONE;
+            new BigInteger(nbt.getByteArray("count")) :
+            BigInteger.ONE;
         setPos(nbt.getFloat("x"), nbt.getFloat("y"));
     }
 }

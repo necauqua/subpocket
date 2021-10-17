@@ -3,7 +3,9 @@
     {
       "condition": "minecraft:match_tool",
       "predicate": {
-        "item": "subpocket:key"
+        "items": [
+          "subpocket:key"
+        ]
       }
     }
   ],

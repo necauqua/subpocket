@@ -6,33 +6,28 @@
 package dev.necauqua.mods.subpocket;
 
 import dev.necauqua.mods.subpocket.api.ISubpocket;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import dev.necauqua.mods.subpocket.config.Config;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.util.ITooltipFlag;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.effect.LightningBoltEntity;
-import net.minecraft.entity.item.ItemEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.inventory.container.Container;
-import net.minecraft.inventory.container.INamedContainerProvider;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Rarity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.ActionResultType;
-import net.minecraft.util.DamageSource;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.world.IBlockReader;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.*;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.RegistryEvent;
@@ -52,7 +47,7 @@ import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 import static net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus.MOD;
 
 @EventBusSubscriber(modid = MODID, bus = MOD)
-public final class SubspatialKeyItem extends Item implements INamedContainerProvider {
+public final class SubspatialKeyItem extends Item implements MenuProvider {
 
     public static final SubspatialKeyItem INSTANCE = new SubspatialKeyItem();
 
@@ -63,43 +58,43 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
 
     public SubspatialKeyItem() {
         super(new Properties()
-                .group(ItemGroup.MISC)
-                .maxStackSize(1)
-                .rarity(Rarity.EPIC));
+            .tab(CreativeModeTab.TAB_MISC)
+            .stacksTo(1)
+            .rarity(Rarity.EPIC));
         setRegistryName(MODID, "key");
     }
 
     @Override
-    public String getTranslationKey() {
+    public String getDescriptionId() {
         return "item." + MODID + ":key";
     }
 
     @Override
-    public ActionResult<ItemStack> onItemRightClick(World world, PlayerEntity player, Hand hand) {
-        if (world.isRemote || !SubpocketCapability.get(player).isUnlocked()) {
-            return new ActionResult<>(ActionResultType.PASS, player.getHeldItem(hand));
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        if (level.isClientSide || !SubpocketCapability.get(player).isUnlocked()) {
+            return new InteractionResultHolder<>(InteractionResult.PASS, player.getItemInHand(hand));
         }
-        if (!(player instanceof ServerPlayerEntity)) { // idk may be some fake player or something
-            return new ActionResult<>(ActionResultType.FAIL, player.getHeldItem(hand));
+        if (!(player instanceof ServerPlayer)) { // idk may be some fake player or something
+            return new InteractionResultHolder<>(InteractionResult.FAIL, player.getItemInHand(hand));
         }
-        player.openContainer(this);
-        return new ActionResult<>(ActionResultType.SUCCESS, player.getHeldItem(hand));
+        player.openMenu(this);
+        return new InteractionResultHolder<>(InteractionResult.SUCCESS, player.getItemInHand(hand));
     }
 
     @Override
     public boolean onEntityItemUpdate(ItemStack stack, ItemEntity entity) {
-        entity.extinguish();
-        if (!Config.subspatialKeyFrozen) {
+        entity.clearFire();
+        if (!Config.subspatialKeyFrozen.get()) {
             return false;
         }
-        if (Config.subspatialKeyNoDespawn) {
+        if (Config.subspatialKeyNoDespawn.get()) {
             // handle fake items from 'makeFakeItem' method (e.g. from /give)
             if (entity.age == 5999) {
-                entity.remove();
+                entity.discard();
             }
         } else if (entity.age != -32768 && --entity.lifespan == 0) {
             //                                      ^ using lifespan instead of age here to keep the 'frozen' look
-            entity.remove();
+            entity.discard();
         }
         if (entity.pickupDelay > 0 && entity.pickupDelay != 32767) {
             --entity.pickupDelay;
@@ -109,29 +104,29 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
 
     @Override
     @OnlyIn(Dist.CLIENT)
-    public boolean hasEffect(ItemStack stack) {
-        PlayerEntity player = Minecraft.getInstance().player;
+    public boolean isFoil(ItemStack stack) {
+        Player player = Minecraft.getInstance().player;
         return player != null && player.getCapability(SubpocketCapability.INSTANCE)
-                .map(ISubpocket::isUnlocked)
-                .orElse(false); // can actually be empty here (e.g. when dead)
+            .map(ISubpocket::isUnlocked)
+            .orElse(false); // can actually be empty here (e.g. when dead)
     }
 
     @Override
     @OnlyIn(Dist.CLIENT)
-    public void addInformation(ItemStack stack, @Nullable World worldIn, List<ITextComponent> tooltip, ITooltipFlag flagIn) {
-        if (!hasEffect(stack)) {
-            tooltip.add(new TranslationTextComponent("item.subpocket:key.desc"));
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
+        if (!isFoil(stack)) {
+            tooltip.add(new TranslatableComponent("item." + MODID + ":key.desc"));
         }
     }
 
     @Override
-    public Container createMenu(int id, PlayerInventory playerInv, PlayerEntity player) {
-        return new SubpocketContainer(id, playerInv);
+    public AbstractContainerMenu createMenu(int id, Inventory inventory, Player player) {
+        return new SubpocketContainer(id, inventory);
     }
 
     @Override
-    public ITextComponent getDisplayName() {
-        return new StringTextComponent("");
+    public Component getDisplayName() {
+        return new TextComponent("");
     }
 
     @EventBusSubscriber(modid = MODID)
@@ -139,68 +134,64 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
 
         @SubscribeEvent
         public static void on(RightClickBlock e) {
-            if (!Config.blockEnderChests || e.getWorld().getBlockState(e.getPos()).getBlock() != Blocks.ENDER_CHEST) {
+            if (!Config.blockEnderChests.get() || e.getWorld().getBlockState(e.getPos()).getBlock() != Blocks.ENDER_CHEST) {
                 return;
             }
-            PlayerEntity player = e.getPlayer();
+            var player = e.getPlayer();
             if (player.isCreative() || !SubpocketCapability.get(player).isUnlocked()) {
                 return;
             }
-            if (!player.world.isRemote) {
-                player.sendStatusMessage(new TranslationTextComponent("popup." + MODID + ":blocked_ender_chest"), true);
+            if (!player.level.isClientSide) {
+                player.displayClientMessage(new TranslatableComponent("popup." + MODID + ":blocked_ender_chest"), true);
             }
             e.setUseBlock(Event.Result.DENY);
         }
 
         @SubscribeEvent
         public static void on(EntityJoinWorldEvent event) {
-            Entity entity = event.getEntity();
-            if (!entity.getClass().equals(ItemEntity.class)) {
-                return;
-            }
-            ItemEntity entityItem = (ItemEntity) entity;
-            if (entityItem.getItem().getItem() != INSTANCE) {
+            var entity = event.getEntity();
+            if (!(entity instanceof ItemEntity entityItem) || entityItem.getItem().getItem() != INSTANCE) {
                 return;
             }
             entity.setInvulnerable(true);
-            if (Config.subspatialKeyNoDespawn) {
+            if (Config.subspatialKeyNoDespawn.get()) {
                 entityItem.age = -32768;
             }
         }
 
         @SubscribeEvent
         public static void on(PlayerEvent.BreakSpeed e) {
-            PlayerEntity player = e.getPlayer();
-            if (player.world.getDimensionKey() == World.THE_END
-                    && e.getState().getBlock() == Blocks.ENDER_CHEST
-                    && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE
-                    && player.world.getGameTime() % 20 == 0
-                    && !SubpocketCapability.get(player).isUnlocked()) {
-                player.attackEntityFrom(DamageSource.OUT_OF_WORLD, 1.0F);
+            var player = e.getPlayer();
+            if (player.level.dimension() == Level.END
+                && e.getState().getBlock() == Blocks.ENDER_CHEST
+                && player.getMainHandItem().getItem() == SubspatialKeyItem.INSTANCE
+                && player.level.getGameTime() % 20 == 0
+                && !SubpocketCapability.get(player).isUnlocked()) {
+                player.hurt(DamageSource.OUT_OF_WORLD, 1.0F);
             }
         }
 
         @SubscribeEvent
         public static void on(BlockEvent.BreakEvent e) {
-            PlayerEntity player = e.getPlayer();
-            if (player.world.getDimensionKey() != World.THE_END
-                    || e.getState().getBlock() != Blocks.ENDER_CHEST
-                    || player.getHeldItemMainhand().getItem() != SubspatialKeyItem.INSTANCE) {
+            var player = e.getPlayer();
+            if (player.level.dimension() != Level.END
+                || e.getState().getBlock() != Blocks.ENDER_CHEST
+                || player.getMainHandItem().getItem() != SubspatialKeyItem.INSTANCE) {
                 return;
             }
-            ISubpocket storage = SubpocketCapability.get(player);
+            var storage = SubpocketCapability.get(player);
             if (storage.isUnlocked()) {
                 return;
             }
-            World world = player.world;
-            if (world.isRemote) {
+            var level = player.level;
+            if (level.isClientSide) {
                 return;
             }
-            BlockPos p = e.getPos();
-            LightningBoltEntity lightning = EntityType.LIGHTNING_BOLT.create(world);
+            var p = e.getPos();
+            var lightning = EntityType.LIGHTNING_BOLT.create(level);
             assert lightning != null; // wtf
-            lightning.setPosition(p.getX(), p.getY(), p.getZ());
-            world.addEntity(lightning);
+            lightning.setPos(p.getX(), p.getY(), p.getZ());
+            level.addFreshEntity(lightning);
             storage.unlock();
             Network.syncToClient(player);
         }
@@ -213,12 +204,12 @@ public final class SubspatialKeyItem extends Item implements INamedContainerProv
         }
 
         @SuppressWarnings("unused") // called from the coremod
-        public static boolean forceDefaultSpeedCondition(BlockState state, PlayerEntity player, IBlockReader blockReader, BlockPos pos) {
-            float hardness = state.getBlockHardness(blockReader, pos);
-            return (hardness >= 0.0F || Config.allowBreakingUnbreakable)
-                && player.getHeldItemMainhand().getItem() == SubspatialKeyItem.INSTANCE
+        public static boolean forceDefaultSpeedCondition(BlockState state, Player player, BlockGetter blockGetter, BlockPos pos) {
+            var destroySpeed = state.getDestroySpeed(blockGetter, pos);
+            return (destroySpeed >= 0.0F || Config.allowBreakingUnbreakable.get())
+                && player.getMainHandItem().getItem() == SubspatialKeyItem.INSTANCE
                 && (state.getBlock() != Blocks.ENDER_CHEST
-                || player.world.getDimensionKey() != World.THE_END
+                || player.level.dimension() != Level.END
                 || SubpocketCapability.get(player).isUnlocked());
         }
     }

@@ -1,17 +1,10 @@
 package dev.necauqua.mods.subpocket.eggs;
 
+import net.minecraft.client.GuiMessage;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ChatLine;
-import net.minecraft.client.gui.IngameGui;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.ICharacterConsumer;
-import net.minecraft.util.IReorderingProcessor;
-import net.minecraft.util.text.Color;
-import net.minecraft.util.text.IFormattableTextComponent;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.Style;
-import net.minecraft.util.text.event.ClickEvent;
-import net.minecraft.util.text.event.HoverEvent;
+import net.minecraft.network.chat.*;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.FormattedCharSink;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
@@ -19,39 +12,40 @@ import net.minecraftforge.event.TickEvent.ClientTickEvent;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
-import static net.minecraft.util.text.TextFormatting.LIGHT_PURPLE;
-import static net.minecraft.util.text.event.ClickEvent.Action.SUGGEST_COMMAND;
-import static net.minecraft.util.text.event.HoverEvent.Action.SHOW_TEXT;
+import static dev.necauqua.mods.subpocket.Subpocket.MODID;
+import static net.minecraft.ChatFormatting.LIGHT_PURPLE;
+import static net.minecraft.network.chat.ClickEvent.Action.SUGGEST_COMMAND;
+import static net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT;
 
+@EventBusSubscriber(value = Dist.CLIENT, modid = MODID)
 @OnlyIn(Dist.CLIENT)
 public final class Name {
 
     public static final UUID NECAUQUA = new UUID(0xf98e93652c5248c5L, 0x86476662f70b7e3dL);
-
     private static final String USERNAME = "necauqua";
-
-    private static final Color COLOR = Color.fromTextFormatting(LIGHT_PURPLE);
+    private static final TextColor COLOR = TextColor.fromLegacyFormat(LIGHT_PURPLE);
 
     private static boolean incoming = false;
-    private static final Set<ChatLine<IReorderingProcessor>> handled = Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Set<GuiMessage<FormattedCharSequence>> handled = Collections.newSetFromMap(new WeakHashMap<>());
 
     @SubscribeEvent
     public static void on(PlayerEvent.NameFormat e) {
         // this is a mini version of this for various non-chat things
         if (NECAUQUA.equals(e.getPlayer().getGameProfile().getId())) {
-            e.setDisplayname(e.getDisplayname().deepCopy().mergeStyle(LIGHT_PURPLE));
+            e.setDisplayname(e.getDisplayname().copy().withStyle(LIGHT_PURPLE));
         }
     }
 
     @SubscribeEvent
     public static void on(ClientChatReceivedEvent e) {
         // 'run code on the next tick'
-        // so that drawnChatLines are populated
+        // so that drawnGuiMessages are populated
         // with recreated split text components
         incoming = true;
     }
@@ -69,19 +63,17 @@ public final class Name {
         }
         incoming = false;
 
-        Minecraft mc = Minecraft.getInstance();
-        IngameGui ingameGUI = mc.ingameGUI;
-        if (ingameGUI != null) {
-            for (ChatLine<IReorderingProcessor> chatLine : ingameGUI.getChatGUI().drawnChatLines) {
-                if (handled.add(chatLine) && extractString(chatLine.getLineString()).contains(USERNAME)) {
-                    chatLine.lineString = new TickReplacer(chatLine.lineString, mc, () -> obfuscateName(USERNAME));
-                }
+        var mc = Minecraft.getInstance();
+        var ingameGUI = mc.gui;
+        for (var chatLine : ingameGUI.getChat().trimmedMessages) {
+            if (handled.add(chatLine) && extractString(chatLine.getMessage()).contains(USERNAME)) {
+                chatLine.message = new TickReplacer(chatLine.message, mc, () -> obfuscateName(USERNAME));
             }
         }
     }
 
-    private static String extractString(IReorderingProcessor reorderingProcessor) {
-        StringBuilder sb = new StringBuilder();
+    private static String extractString(FormattedCharSequence reorderingProcessor) {
+        var sb = new StringBuilder();
         reorderingProcessor.accept((index, style, codePoint) -> {
             sb.appendCodePoint(codePoint);
             return true;
@@ -90,36 +82,36 @@ public final class Name {
     }
 
     @SuppressWarnings("SameParameterValue")
-    private static IReorderingProcessor obfuscateName(String name) {
-        Style style = Style.EMPTY
-            .setColor(COLOR)
-            .setInsertion(USERNAME)
-            .setClickEvent(new ClickEvent(SUGGEST_COMMAND, "/msg " + USERNAME + " "));
+    private static FormattedCharSequence obfuscateName(String name) {
+        var style = Style.EMPTY
+            .withColor(COLOR)
+            .withInsertion(USERNAME)
+            .withClickEvent(new ClickEvent(SUGGEST_COMMAND, "/msg " + USERNAME + " "));
 
         // an easter egg inside of an easter egg, lol
-        PlayerEntity observer = Minecraft.getInstance().player;
+        var observer = Minecraft.getInstance().player;
         if (observer != null) {
-            IFormattableTextComponent hovered = new StringTextComponent("hello, ").appendSibling(observer.getDisplayName());
-            style = style.setHoverEvent(new HoverEvent(SHOW_TEXT, hovered));
+            var hovered = new TextComponent("hello, ").append(observer.getDisplayName());
+            style = style.withHoverEvent(new HoverEvent(SHOW_TEXT, hovered));
         }
 
-        int[] codePoints = name.codePoints().toArray();
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        var codePoints = name.codePoints().toArray();
+        var rng = ThreadLocalRandom.current();
 
         // add a possibility of clean username to show up once in a tick
         if (rng.nextInt(codePoints.length) == 0) {
-            return IReorderingProcessor.fromString(name, style);
+            return FormattedCharSequence.forward(name, style);
         }
 
         // up to half of the characters are obf
-        int[] indices = new int[codePoints.length / 2];
+        var indices = new int[codePoints.length / 2];
         Arrays.setAll(indices, i -> rng.nextInt(codePoints.length));
 
-        Style finalStyle = style;
-        Style obfuscated = style.setObfuscated(true);
+        var finalStyle = style;
+        var obfuscated = style.setObfuscated(true);
         return consumer -> {
-            int ptr = indices.length - 1;
-            for (int i = 0; i < codePoints.length; i++) {
+            var ptr = indices.length - 1;
+            for (var i = 0; i < codePoints.length; i++) {
                 // if there are obf indices left and we hit one - make it obf:
                 //   this is going to miss a few of them since indices are unsorted
                 //   but this is exactly what I want - *up to* half the characters, not *always*
@@ -138,27 +130,27 @@ public final class Name {
         };
     }
 
-    private static final class TickReplacer implements IReorderingProcessor {
+    private static final class TickReplacer implements FormattedCharSequence {
 
-        private final IReorderingProcessor original;
+        private final FormattedCharSequence original;
         private final Minecraft mc;
-        private final Supplier<IReorderingProcessor> replacementSupplier;
+        private final Supplier<FormattedCharSequence> replacementSupplier;
 
-        private IReorderingProcessor replacement;
+        private FormattedCharSequence replacement;
         private long lastTime;
 
-        public TickReplacer(IReorderingProcessor original, Minecraft mc, Supplier<IReorderingProcessor> replacementSupplier) {
+        public TickReplacer(FormattedCharSequence original, Minecraft mc, Supplier<FormattedCharSequence> replacementSupplier) {
             this.original = original;
             this.mc = mc;
             this.replacementSupplier = replacementSupplier;
 
             replacement = replacementSupplier.get();
-            lastTime = mc.world != null ? mc.world.getGameTime() : 0;
+            lastTime = mc.level != null ? mc.level.getGameTime() : 0;
         }
 
         @Override
-        public boolean accept(ICharacterConsumer consumer) {
-            long currentTime = mc.world != null ? mc.world.getGameTime() : 0;
+        public boolean accept(FormattedCharSink consumer) {
+            var currentTime = mc.level != null ? mc.level.getGameTime() : 0;
             if (currentTime != lastTime) {
                 lastTime = currentTime;
                 replacement = replacementSupplier.get();
@@ -167,23 +159,23 @@ public final class Name {
         }
     }
 
-    private static final class ReplacingConsumer implements ICharacterConsumer {
+    private static final class ReplacingConsumer implements FormattedCharSink {
 
-        private final ICharacterConsumer consumer;
+        private final FormattedCharSink consumer;
 
         private final int[] buffer1;
         private final Style[] buffer2;
         private final int[] buffer3;
 
         private final int[] target;
-        private final IReorderingProcessor replacement;
+        private final FormattedCharSequence replacement;
 
         private int bufferPointer = 0;
 
-        public ReplacingConsumer(ICharacterConsumer consumer, String target, IReorderingProcessor replacement) {
+        public ReplacingConsumer(FormattedCharSink consumer, String target, FormattedCharSequence replacement) {
             this.consumer = consumer;
             this.target = target.codePoints().toArray();
-            int length = this.target.length;
+            var length = this.target.length;
             buffer1 = new int[length];
             buffer2 = new Style[length];
             buffer3 = new int[length];
@@ -195,7 +187,7 @@ public final class Name {
             // if code point didn't match current expectation..
             if (codePoint != target[bufferPointer]) {
                 // .. we dump the buffer of previously matched calls ..
-                for (int i = 0; i < bufferPointer; i++) {
+                for (var i = 0; i < bufferPointer; i++) {
                     if (!consumer.accept(buffer1[i], buffer2[i], buffer3[i])) {
                         return false;
                     }

@@ -5,15 +5,16 @@
 
 package dev.necauqua.mods.subpocket.api;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.util.INBTSerializable;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
+import java.util.function.UnaryOperator;
 
-public interface ISubpocketStack extends INBTSerializable<CompoundNBT> {
+public interface ISubpocketStack extends INBTSerializable<CompoundTag> {
 
     // semi-easter-egg (well, how does one get to omg-illion items?) - Clicker Heroes legend is used here
     // (except that `O` is replaced by `o` because in minecraft font it is too similar to zero)
@@ -23,7 +24,7 @@ public interface ISubpocketStack extends INBTSerializable<CompoundNBT> {
     /**
      * Each positioned stack is bound to storage it exists in.
      * This is done so when stack is emptied (count set to zero or ref stack is empty)
-     * is automatically removes itself from that storage.
+     * it automatically removes itself from that storage.
      * One stack could be only bound to one storage for this to behave properly.
      *
      * @return bound storage or null.
@@ -63,7 +64,7 @@ public interface ISubpocketStack extends INBTSerializable<CompoundNBT> {
 
     /**
      * Checks if given stack matches the reference stack.
-     * Basically, {@link ItemStack#areItemStacksEqual} without count check.
+     * Basically, {@link ItemStack#matches(ItemStack, ItemStack)} without count check.
      *
      * @param stack ItemStack to match against.
      * @return true is such item matches this stack.
@@ -174,22 +175,50 @@ public interface ISubpocketStack extends INBTSerializable<CompoundNBT> {
     void setPos(float x, float y);
 
     /**
+     * Used to determine how to show super-big numbers geoing out of the legend.
+     **/
+    enum OverflowType {
+        /**
+         * Show large numbers in Clicker Heroes scientific notation
+         **/
+        SCIENTIFIC(s -> s.charAt(0) + "." + s.substring(1, 4) + "e" + (s.length() - 1)),
+        /**
+         * Just show the string 'ALOT' for large numbers like old versions of subpocket did
+         **/
+        CLASSIC(s -> "ALOT");
+
+        UnaryOperator<String> format;
+
+        OverflowType(UnaryOperator<String> format) {
+            this.format = format;
+        }
+
+        public OverflowType next() {
+            var values = OverflowType.values();
+            return values[(ordinal() + 1) % values.length];
+        }
+    }
+
+    /**
      * Formats count of this stack to 4-character string, used in stack rendering.
      *
+     * @param overflowType how to show the numbers so large they go out of legend.
      * @return 4-character string representation.
      **/
     @Nonnull
-    default String getShortNumberString() {
-        BigInteger count = getCount();
+    default String getShortNumberString(OverflowType overflowType) {
+        var count = getCount();
         if (count.compareTo(BigInteger.ONE) <= 0) {
             return "";
         }
-        String s = count.toString();
+        var s = count.toString();
         if (count.compareTo(THOUSAND) < 0) {
             return s;
         }
-        int m = ((s.length() - 1) % 3) + 1;
-        int d = s.length() / 3 - (s.length() % 3 == 0 ? 2 : 1);
-        return d < LEGEND.length() ? s.substring(0, m) + LEGEND.charAt(d) : "ALOT";
+        var m = ((s.length() - 1) % 3) + 1;
+        var d = s.length() / 3 - (s.length() % 3 == 0 ? 2 : 1);
+        return d < LEGEND.length() ?
+            s.substring(0, m) + LEGEND.charAt(d) :
+            overflowType.format.apply(s);
     }
 }

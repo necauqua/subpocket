@@ -5,8 +5,8 @@
 
 package dev.necauqua.mods.subpocket.api;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
 
 import javax.annotation.Nonnull;
 import java.math.BigInteger;
@@ -62,11 +62,11 @@ public interface ISubpocketStackFactory {
      **/
     @Nonnull
     default ISubpocketStack create(ItemStack ref, BigInteger count) {
-        int a = Objects.hashCode(ref.getItem().getRegistryName());
-        int b = Objects.hashCode(ref.getTag());
-        Random rand = new Random(31L * a + b); // meh
-        int x = rand.nextInt(160 - 18) + 1;
-        int y = rand.nextInt(70 - 18) + 1;
+        var a = Objects.hashCode(ref.getItem().getRegistryName());
+        var b = Objects.hashCode(ref.getTag());
+        var rand = new Random(31L * a + b); // meh
+        var x = rand.nextInt(160 - 18) + 1;
+        var y = rand.nextInt(70 - 18) + 1;
         return create(ref, count, x, y);
     }
 
@@ -89,5 +89,5 @@ public interface ISubpocketStackFactory {
      * @return stack instance.
      **/
     @Nonnull
-    ISubpocketStack create(CompoundNBT nbt);
+    ISubpocketStack create(CompoundTag nbt);
 }

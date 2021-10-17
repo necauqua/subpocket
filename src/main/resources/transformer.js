@@ -29,13 +29,13 @@ function initializeCoreMod() {
         'unconditional breaking speed': {
             target: {
                 'type': 'CLASS',
-                'name': 'net.minecraft.block.AbstractBlock'
+                'name': 'net.minecraft.world.level.block.state.BlockBehaviour'
             },
             transformer: function(classNode) {
                 var method = findMethod(classNode.methods, {
-                    obf: 'func_180647_a',
-                    name: 'getPlayerRelativeBlockHardness',
-                    desc: '(Lnet/minecraft/block/BlockState;Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;)F',
+                    obf: 'm_5880_',
+                    name: 'getDestroyProgress',
+                    desc: '(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F'
                 });
                 var injection = new InsnList();
                 injection.add(new VarInsnNode(Opcodes.ALOAD, 1));
@@ -45,7 +45,7 @@ function initializeCoreMod() {
                 injection.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
                     'dev/necauqua/mods/subpocket/SubspatialKeyItem$Interactions',
                     'forceDefaultSpeedCondition',
-                    '(Lnet/minecraft/block/BlockState;Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/world/IBlockReader;Lnet/minecraft/util/math/BlockPos;)Z',
+                    '(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z',
                     false));
                 var skip = new LabelNode();
                 injection.add(new JumpInsnNode(Opcodes.IFEQ, skip));

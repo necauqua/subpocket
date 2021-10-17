@@ -1,6 +1,6 @@
 
 modLoader = 'javafml'
-loaderVersion = '[36,)'
+loaderVersion = '[37,)'
 license = 'MIT'
 issueTrackerURL='https://github.com/necauqua/subpocket/issues'
 
@@ -25,12 +25,12 @@ Butt beware..
 [[dependencies.subpocket]]
 modId = 'forge'
 mandatory = true
-versionRange = '[36,)'
+versionRange = '[37,)'
 ordering = 'NONE'
 side = 'BOTH'
 [[dependencies.subpocket]]
 modId = 'minecraft'
 mandatory = true
-versionRange = '[1.16,1.17)'
+versionRange = '[1.17,1.18)'
 ordering = 'NONE'
 side = 'BOTH'

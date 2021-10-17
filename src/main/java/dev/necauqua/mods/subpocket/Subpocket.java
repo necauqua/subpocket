@@ -6,8 +6,9 @@
 package dev.necauqua.mods.subpocket;
 
 import dev.necauqua.mods.subpocket.api.SubpocketAPI;
-import dev.necauqua.mods.subpocket.impl.SubpocketStackFactoryImpl;
-import net.minecraft.util.ResourceLocation;
+import dev.necauqua.mods.subpocket.config.Config;
+import dev.necauqua.mods.subpocket.impl.SubpocketAPIImpl;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.fml.common.Mod;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
@@ -17,7 +18,7 @@ public final class Subpocket {
     public static final String MODID = "subpocket";
 
     public Subpocket() {
-        SubpocketAPI.stackFactory = SubpocketStackFactoryImpl.INSTANCE;
+        SubpocketAPI.instance = SubpocketAPIImpl.INSTANCE;
         Config.init();
     }
 
