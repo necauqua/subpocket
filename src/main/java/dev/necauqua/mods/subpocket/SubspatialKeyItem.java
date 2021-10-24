@@ -87,13 +87,9 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
         if (!Config.subspatialKeyFrozen.get()) {
             return false;
         }
-        if (Config.subspatialKeyNoDespawn.get()) {
-            // handle fake items from 'makeFakeItem' method (e.g. from /give)
-            if (entity.age == 5999) {
-                entity.discard();
-            }
-        } else if (entity.age != -32768 && --entity.lifespan == 0) {
-            //                                      ^ using lifespan instead of age here to keep the 'frozen' look
+        if (entity.age >= 5999 // remove the fake item from the 'makeFakeItem' method (e.g. from /give)
+            || !Config.subspatialKeyNoDespawn.get() && entity.age != -32768 && --entity.lifespan == 0) {
+            // shortening the lifespan instead of growing the age here to keep the 'frozen' look ^
             entity.discard();
         }
         if (entity.pickupDelay > 0 && entity.pickupDelay != 32767) {
@@ -105,7 +101,7 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
     @Override
     @OnlyIn(Dist.CLIENT)
     public boolean isFoil(ItemStack stack) {
-        Player player = Minecraft.getInstance().player;
+        var player = Minecraft.getInstance().player;
         return player != null && player.getCapability(SubpocketCapability.INSTANCE)
             .map(ISubpocket::isUnlocked)
             .orElse(false); // can actually be empty here (e.g. when dead)

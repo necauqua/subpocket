@@ -1,7 +1,7 @@
 # subpocket
 
 [![Downloads Number](http://cf.way2muchnoise.eu/short_subpocket.svg?badge_style=flat)](https://www.curseforge.com/minecraft/mc-mods/subpocket)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/necauqua/subpocket/Push%20to%20main?style=flat-square)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/necauqua/subpocket/Push%20to%20main?style=flat-square)](https://github.com/necauqua/subpocket/actions/workflows/push-to-main.yml)
 <br>
 [![Latest Release](https://img.shields.io/github/release/necauqua/subpocket.svg?label=last%20release&style=flat-square)](https://www.curseforge.com/minecraft/mc-mods/subpocket/files)
 
