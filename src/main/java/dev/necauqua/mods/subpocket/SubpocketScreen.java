@@ -42,7 +42,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fmlclient.gui.GuiUtils;
 import org.apache.logging.log4j.LogManager;
 import org.lwjgl.BufferUtils;
 
@@ -196,7 +195,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
                 lines.add(new TextComponent(format("hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY())));
             }
 
-            GuiUtils.drawHoveringText(poseStack, lines, leftPos + 25, topPos + 98, width, height, 0, font);
+            renderTooltip(poseStack, lines, Optional.empty(), leftPos + 25, topPos + 98, font);
         }
 
         renderTooltip(poseStack, mouseX, mouseY);
@@ -214,8 +213,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
                     underMouse.getShortNumberString(Config.overflowType.get())));
         }
         var font = RenderProperties.get(ref).getFont(ref);
-        GuiUtils.drawHoveringText(ref, poseStack, tooltip, mouseX + 12, mouseY, width, height, 0,
-            font != null ? font : this.font);
+        renderTooltip(poseStack, tooltip, ref.getTooltipImage(), mouseX + 12, mouseY, font != null ? font : this.font);
     }
 
     @Override

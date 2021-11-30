@@ -20,9 +20,9 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.loading.JarVersionLookupHandler;
-import net.minecraftforge.fmllegacy.network.NetworkEvent.ClientCustomPayloadEvent;
-import net.minecraftforge.fmllegacy.network.NetworkEvent.ServerCustomPayloadEvent;
-import net.minecraftforge.fmllegacy.network.NetworkRegistry;
+import net.minecraftforge.network.NetworkEvent.ClientCustomPayloadEvent;
+import net.minecraftforge.network.NetworkEvent.ServerCustomPayloadEvent;
+import net.minecraftforge.network.NetworkRegistry;
 import org.apache.logging.log4j.LogManager;
 
 import javax.annotation.Nullable;
@@ -36,7 +36,7 @@ public final class Network {
     private static final ResourceLocation CHANNEL = ns("channel");
 
     @SubscribeEvent
-    public static void on(FMLCommonSetupEvent e2) {
+    public static void on(FMLCommonSetupEvent e) {
         var version = JarVersionLookupHandler.getImplementationVersion(Subpocket.class).orElse("DEBUG");
         NetworkRegistry.ChannelBuilder
             .named(new ResourceLocation(MODID, "channel"))

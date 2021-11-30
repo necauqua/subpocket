@@ -37,6 +37,10 @@ function initializeCoreMod() {
                     name: 'getDestroyProgress',
                     desc: '(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F'
                 });
+                // just in case obf is wrong - don't have the breaking thing instead of crashing :)
+                if (method == null) {
+                    return classNode;
+                }
                 var injection = new InsnList();
                 injection.add(new VarInsnNode(Opcodes.ALOAD, 1));
                 injection.add(new VarInsnNode(Opcodes.ALOAD, 2));

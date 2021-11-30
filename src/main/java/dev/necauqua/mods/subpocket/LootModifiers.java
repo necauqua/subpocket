@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
+import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import net.minecraftforge.common.loot.GlobalLootModifierSerializer;
 import net.minecraftforge.common.loot.LootModifier;
 import net.minecraftforge.event.LootTableLoadEvent;
@@ -48,7 +49,7 @@ public final class LootModifiers {
         e.getTable().addPool(lootPool()
             .name("subpocket_injected_pool")
             .add(lootTableReference(ns(path.substring(path.indexOf('/') + 1))))
-            .bonusRolls(0.0F, 1.0F)
+            .setBonusRolls(UniformGenerator.between(0.0F, 1.0F))
             .build());
     }
 

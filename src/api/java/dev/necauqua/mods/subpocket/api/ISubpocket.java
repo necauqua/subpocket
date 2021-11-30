@@ -21,8 +21,7 @@ import java.util.List;
  * <p>
  * Example usage:
  * <pre>
- * &#64;CapabilityInject(ISubpocket.class)
- * public static Capability&lt;ISubpocket&gt; SUBPOCKET_CAPABILITY;
+ * public static final Capability&lt;ISubpocket&gt; SUBPOCKET_CAPABILITY = CapabilityManager.get(new CapabilityToken<>(){});
  *
  * void method(Player player) {
  *     if (SUBPOCKET_CAPABILITY != null) { // if the mod was loaded

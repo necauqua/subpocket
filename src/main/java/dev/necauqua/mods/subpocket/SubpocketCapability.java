@@ -10,7 +10,8 @@ import dev.necauqua.mods.subpocket.impl.SubpocketImpl;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityInject;
+import net.minecraftforge.common.capabilities.CapabilityManager;
+import net.minecraftforge.common.capabilities.CapabilityToken;
 import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -28,8 +29,7 @@ import static net.minecraft.world.entity.Entity.RemovalReason.CHANGED_DIMENSION;
 @EventBusSubscriber(modid = MODID)
 public final class SubpocketCapability {
 
-    @CapabilityInject(ISubpocket.class)
-    public static Capability<ISubpocket> INSTANCE;
+    public static final Capability<ISubpocket> INSTANCE = CapabilityManager.get(new CapabilityToken<>(){});
 
     public static ISubpocket get(Player player) {
         return player.getCapability(INSTANCE)
