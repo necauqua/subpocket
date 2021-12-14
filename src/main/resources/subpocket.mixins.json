@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "dev.necauqua.mods.subpocket.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "subpocket.refmap.json",
+  "mixins": [
+    "BlockBehaviourMixin",
+    "ServerPlayerGameModeMixin"
+  ],
+  "client": [
+    "MultiPlayerGameModeMixin"
+  ],
+  "minVersion": "0.8"
+}

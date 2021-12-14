@@ -5,15 +5,19 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.*;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.FormattedCharSink;
+import net.minecraft.world.entity.Entity;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
+import net.minecraftforge.client.event.RenderNameplateEvent;
 import net.minecraftforge.event.TickEvent.ClientTickEvent;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 
+import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
@@ -33,12 +37,23 @@ public final class Name {
 
     private static boolean incoming = false;
     private static final Set<GuiMessage<FormattedCharSequence>> handled = Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Map<Entity, Component> nameplates = new WeakHashMap<>();
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void on(PlayerEvent.NameFormat e) {
-        // this is a mini version of this for various non-chat things
         if (NECAUQUA.equals(e.getPlayer().getGameProfile().getId())) {
+            // sadly there is no reason to just return CoolComponent here
+            // instead of doing cringe chat stuff below
+            // because it does not survive being sent through the network as there are
+            // no custom component support and thus no custom component serializers
             e.setDisplayname(e.getDisplayname().copy().withStyle(LIGHT_PURPLE));
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void on(RenderNameplateEvent e) {
+        if (USERNAME.equals(e.getOriginalContent().getString())) {
+            e.setContent(nameplates.computeIfAbsent(e.getEntity(), $ -> new CoolComponent()));
         }
     }
 
@@ -67,7 +82,7 @@ public final class Name {
         var ingameGUI = mc.gui;
         for (var chatLine : ingameGUI.getChat().trimmedMessages) {
             if (handled.add(chatLine) && extractString(chatLine.getMessage()).contains(USERNAME)) {
-                chatLine.message = new TickReplacer(chatLine.message, mc, () -> obfuscateName(USERNAME));
+                chatLine.message = new TickReplacer(chatLine.message, () -> obfuscateName(USERNAME));
             }
         }
     }
@@ -90,7 +105,7 @@ public final class Name {
 
         // an easter egg inside of an easter egg, lol
         var observer = Minecraft.getInstance().player;
-        if (observer != null) {
+        if (observer != null && !observer.getGameProfile().getId().equals(NECAUQUA)) { // prevent infinite recursion because of NameFormat
             var hovered = new TextComponent("hello, ").append(observer.getDisplayName());
             style = style.withHoverEvent(new HoverEvent(SHOW_TEXT, hovered));
         }
@@ -130,32 +145,55 @@ public final class Name {
         };
     }
 
+    private static final class CoolComponent extends BaseComponent {
+
+        private final TickReplacer visual = new TickReplacer(null, () -> obfuscateName(USERNAME));
+
+        @Override
+        public String getContents() {
+            return USERNAME;
+        }
+
+        @Override
+        public FormattedCharSequence getVisualOrderText() {
+            return visual;
+        }
+
+        @Override
+        public BaseComponent plainCopy() {
+            return new CoolComponent();
+        }
+    }
+
     private static final class TickReplacer implements FormattedCharSequence {
 
+        @Nullable
         private final FormattedCharSequence original;
-        private final Minecraft mc;
         private final Supplier<FormattedCharSequence> replacementSupplier;
 
         private FormattedCharSequence replacement;
         private long lastTime;
 
-        public TickReplacer(FormattedCharSequence original, Minecraft mc, Supplier<FormattedCharSequence> replacementSupplier) {
+        public TickReplacer(@Nullable FormattedCharSequence original, Supplier<FormattedCharSequence> replacementSupplier) {
             this.original = original;
-            this.mc = mc;
             this.replacementSupplier = replacementSupplier;
 
             replacement = replacementSupplier.get();
+            var mc = Minecraft.getInstance();
             lastTime = mc.level != null ? mc.level.getGameTime() : 0;
         }
 
         @Override
         public boolean accept(FormattedCharSink consumer) {
+            var mc = Minecraft.getInstance();
             var currentTime = mc.level != null ? mc.level.getGameTime() : 0;
             if (currentTime != lastTime) {
                 lastTime = currentTime;
                 replacement = replacementSupplier.get();
             }
-            return original.accept(new ReplacingConsumer(consumer, USERNAME, replacement));
+            return original != null ?
+                original.accept(new ReplacingConsumer(consumer, USERNAME, replacement)) :
+                replacement.accept(consumer);
         }
     }
 

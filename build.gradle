@@ -13,8 +13,9 @@ sourceSets { api }
 
 nmod {
     curseID = '275425'
-    version = '1.18-8.0.0.0'
-    forge = '1.18-38.0.1'
-    mappings = '1.18'
+    version = '1.18-8.0.1.0'
+    forge = '1.18.1-39.0.5'
+    mappings = '1.18.1'
     javaVersion = 17
+    mixin = '0.8.5'
 }

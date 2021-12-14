@@ -14,7 +14,6 @@ import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
@@ -24,10 +23,8 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.*;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.RegistryEvent;
@@ -72,13 +69,13 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         if (level.isClientSide || !SubpocketCapability.get(player).isUnlocked()) {
-            return new InteractionResultHolder<>(InteractionResult.PASS, player.getItemInHand(hand));
+            return InteractionResultHolder.pass(player.getItemInHand(hand));
         }
-        if (!(player instanceof ServerPlayer)) { // idk may be some fake player or something
-            return new InteractionResultHolder<>(InteractionResult.FAIL, player.getItemInHand(hand));
+        if (player instanceof ServerPlayer) { // idk may be some fake player or something
+            player.openMenu(this);
+            return InteractionResultHolder.success(player.getItemInHand(hand));
         }
-        player.openMenu(this);
-        return new InteractionResultHolder<>(InteractionResult.SUCCESS, player.getItemInHand(hand));
+        return InteractionResultHolder.fail(player.getItemInHand(hand));
     }
 
     @Override
@@ -198,15 +195,10 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
                 e.setUseBlock(Event.Result.DENY);
             }
         }
+    }
 
-        @SuppressWarnings("unused") // called from the coremod
-        public static boolean forceDefaultSpeedCondition(BlockState state, Player player, BlockGetter blockGetter, BlockPos pos) {
-            var destroySpeed = state.getDestroySpeed(blockGetter, pos);
-            return (destroySpeed >= 0.0F || Config.allowBreakingUnbreakable.get())
-                && player.getMainHandItem().getItem() == SubspatialKeyItem.INSTANCE
-                && (state.getBlock() != Blocks.ENDER_CHEST
-                || player.level.dimension() != Level.END
-                || SubpocketCapability.get(player).isUnlocked());
-        }
+    public static boolean allowCreativeDestroy(Player player, Level level, BlockPos pos) {
+        return player.getMainHandItem().getItem() != INSTANCE
+            || level.getBlockState(pos).getDestroySpeed(level, pos) < 0.0F && !Config.allowBreakingUnbreakable.get();
     }
 }
