@@ -39,7 +39,7 @@ public final class Network {
     public static void on(FMLCommonSetupEvent e) {
         var version = JarVersionLookupHandler.getImplementationVersion(Subpocket.class).orElse("DEBUG");
         NetworkRegistry.ChannelBuilder
-            .named(new ResourceLocation(MODID, "channel"))
+            .named(CHANNEL)
             .clientAcceptedVersions(version::equals)
             .serverAcceptedVersions(version::equals)
             .networkProtocolVersion(() -> version)

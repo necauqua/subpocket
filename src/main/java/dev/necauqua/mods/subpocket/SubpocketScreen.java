@@ -158,7 +158,16 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
     }
 
     @Override
+    protected void renderBg(PoseStack poseStack, float partialTicks, int x, int y) {}
+
+    // prevent it from drawing the titles
+    @Override
+    protected void renderLabels(PoseStack poseStack, int x, int y) {}
+
+    @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTicks) {
+        renderBackground(poseStack);
+
         // get global (not downscaled) mouse pos and 'downscale' it to floats, keeping precision
         localX = (float) (mc.mouseHandler.xpos() / scale - leftPos - X_OFF);
         localY = (float) (mc.mouseHandler.ypos() / scale - topPos - Y_OFF);
@@ -166,7 +175,78 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         // exclude edges here because they behave weirdly sometimes
         mouseInside = localX > 0 && localX < WIDTH && localY > 0 && localY < HEIGHT;
         effectivePickingMode = hasAltDown() ? PickingMode.ALTERNATIVE : pickingMode.get();
-        renderBackground(poseStack);
+
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.setShaderTexture(0, TEXTURE);
+
+        blit(poseStack, leftPos, topPos, 0, 0, imageWidth, imageHeight);
+        if (isTabDown) {
+            blit(poseStack, leftPos, topPos + 126, 0, imageHeight, 27, 40);
+        }
+
+        // left it for fun, this is a "debug mode", heh (although it did help me a lot)
+        if (debug) {
+            RenderSystem.setShaderTexture(0, framebuffer.getColorTextureId());
+            var tess = Tesselator.getInstance();
+            var bb = tess.getBuilder();
+            bb.begin(QUADS, POSITION_TEX);
+            bb.vertex(leftPos + X_OFF, topPos + Y_OFF + HEIGHT, 0).uv(0, 0).endVertex();
+            bb.vertex(leftPos + X_OFF + WIDTH, topPos + Y_OFF + HEIGHT, 0).uv(1, 0).endVertex();
+            bb.vertex(leftPos + X_OFF + WIDTH, topPos + Y_OFF, 0).uv(1, 1).endVertex();
+            bb.vertex(leftPos + X_OFF, topPos + Y_OFF, 0).uv(0, 1).endVertex();
+            tess.end();
+        }
+
+        mc.getProfiler().popPush("subpocket");
+
+        underMouseIndex = mouseInside ?
+            draggingIndex == NONE ?
+                effectivePickingMode.isAlt() ?
+                    altPick(storage.getStacksView(), localX, localY) :
+                    pixelPick() :
+                draggingIndex :
+            NONE;
+
+        RenderSystem.enableScissor( // yay, scissors!
+            (int) ((leftPos + X_OFF) * scale),
+            (int) (mc.getWindow().getHeight() - (topPos + Y_OFF + HEIGHT) * scale),
+            (int) (WIDTH * scale),
+            (int) (HEIGHT * scale)
+        );
+
+        if (debug) {
+            if (underMouseIndex != NONE && underMouseIndex != draggingIndex) {
+                drawStack(poseStack, storage.get(underMouseIndex), true, true);
+            }
+        } else {
+            var stacksView = storage.getStacksView();
+            for (var i = 0; i < stacksView.size(); ++i) {
+                // dragged stack is drawn below separately
+                if (i != draggingIndex) {
+                    drawStack(poseStack, stacksView.get(i), i == underMouseIndex, true);
+                }
+            }
+        }
+
+        mc.getProfiler().popPush("gameRenderer");
+
+        if (draggingIndex != NONE) {
+            var modelview = RenderSystem.getModelViewStack();
+            modelview.pushPose();
+            modelview.translate( // custom movement for sub-mc-pixel smoothness
+                Mth.clamp(localX + draggingOffX, draggingOffX, WIDTH + draggingOffX),
+                Mth.clamp(localY + draggingOffY, draggingOffY, HEIGHT + draggingOffY),
+                0
+            );
+            RenderSystem.applyModelViewMatrix();
+            drawStack(poseStack, storage.get(draggingIndex), true, false);
+            modelview.popPose();
+            RenderSystem.applyModelViewMatrix();
+        }
+
+        RenderSystem.disableScissor();
+
         super.render(poseStack, mouseX, mouseY, partialTicks);
 
         var underMouse = storage.get(underMouseIndex);
@@ -216,78 +296,6 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         renderTooltip(poseStack, tooltip, ref.getTooltipImage(), mouseX + 12, mouseY, font != null ? font : this.font);
     }
 
-    @Override
-    protected void renderBg(PoseStack poseStack, float partialTicks, int x, int y) {
-        RenderSystem.setShader(GameRenderer::getPositionTexShader);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.setShaderTexture(0, TEXTURE);
-
-        blit(poseStack, leftPos, topPos, 0, 0, imageWidth, imageHeight);
-        if (isTabDown) {
-            blit(poseStack, leftPos, topPos + 126, 0, imageHeight, 27, 40);
-        }
-
-        // left it for fun, this is a "debug mode", heh (although it did help me a lot)
-        if (debug) {
-            RenderSystem.setShaderTexture(0, framebuffer.getColorTextureId());
-            var tess = Tesselator.getInstance();
-            var bb = tess.getBuilder();
-            bb.begin(QUADS, POSITION_TEX);
-            bb.vertex(leftPos + X_OFF, topPos + Y_OFF + HEIGHT, 0).uv(0, 0).endVertex();
-            bb.vertex(leftPos + X_OFF + WIDTH, topPos + Y_OFF + HEIGHT, 0).uv(1, 0).endVertex();
-            bb.vertex(leftPos + X_OFF + WIDTH, topPos + Y_OFF, 0).uv(1, 1).endVertex();
-            bb.vertex(leftPos + X_OFF, topPos + Y_OFF, 0).uv(0, 1).endVertex();
-            tess.end();
-        }
-
-        if (!mouseInside) {
-            underMouseIndex = NONE;
-        } else if (draggingIndex == NONE) {
-            underMouseIndex = effectivePickingMode.isAlt() ?
-                altPick(storage.getStacksView(), localX, localY) :
-                pixelPick();
-        } else {
-            underMouseIndex = draggingIndex;
-        }
-
-        RenderSystem.enableScissor( // yay, scissors!
-            (int) ((leftPos + X_OFF) * scale),
-            (int) (mc.getWindow().getHeight() - (topPos + Y_OFF + HEIGHT) * scale),
-            (int) (WIDTH * scale),
-            (int) (HEIGHT * scale)
-        );
-
-        if (debug) {
-            if (underMouseIndex != NONE && underMouseIndex != draggingIndex) {
-                drawStack(poseStack, storage.get(underMouseIndex), true, true);
-            }
-        } else {
-            var stacksView = storage.getStacksView();
-            for (var i = 0; i < stacksView.size(); ++i) {
-                // dragged stack is drawn below separately
-                if (i != draggingIndex) {
-                    drawStack(poseStack, stacksView.get(i), i == underMouseIndex, true);
-                }
-            }
-        }
-
-        if (draggingIndex != NONE) {
-            var modelview = RenderSystem.getModelViewStack();
-            modelview.pushPose();
-            modelview.translate( // custom movement for sub-mc-pixel smoothness
-                Mth.clamp(localX + draggingOffX, draggingOffX, WIDTH + draggingOffX),
-                Mth.clamp(localY + draggingOffY, draggingOffY, HEIGHT + draggingOffY),
-                0
-            );
-            RenderSystem.applyModelViewMatrix();
-            drawStack(poseStack, storage.get(draggingIndex), true, false);
-            modelview.popPose();
-            RenderSystem.applyModelViewMatrix();
-        }
-
-        RenderSystem.disableScissor();
-    }
-
     private void drawStack(PoseStack poseStack, ISubpocketStack stack, boolean hovered, boolean translate) {
         // push-translate-renderAt00-pop is so that we can render at float coords
         var movelview = RenderSystem.getModelViewStack();
@@ -322,11 +330,6 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         RenderSystem.clear(GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
         // ^ makes it so that we can render 3d items (like itemblocks) as 2d sprites on top of each other
         // so that they never cross or zfight each other
-    }
-
-    @Override
-    protected void renderLabels(PoseStack poseStack, int x, int y) {
-        // prevent it from drawing the titles
     }
 
     @Override
@@ -456,6 +459,8 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         // but width/height are changed to ours
         RenderSystem.setProjectionMatrix(Matrix4f.orthographic(0.0F, framebuffer.width, 0.0F, framebuffer.height, 1000.0F, 3000.0F));
 
+        mc.getProfiler().popPush("subpocket.silhouettes");
+
         var stacksView = storage.getStacksView();
         for (var i = 0; i < stacksView.size(); ++i) {
             RenderSystem.setShaderColor((i >> 16 & 0xff) / 255.0F, (i >> 8 & 0xff) / 255.0F, (i & 0xff) / 255.0F, 1.0F);
@@ -489,13 +494,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
             poseStack.translate(-0.5D, -0.5D, -0.5D);
 
             var bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
-            var wrapper = (MultiBufferSource) renderType -> {
-                var texture =
-                    renderType instanceof RenderType.CompositeRenderType composite ?
-                        composite.state.textureState :
-                        SilhouetteRenderType.NO_TEXTURE;
-                return bufferSource.getBuffer(SilhouetteRenderType.get(texture));
-            };
+            var wrapper = (MultiBufferSource) renderType -> bufferSource.getBuffer(SilhouetteRenderType.get(renderType));
             if (model.isCustomRenderer()) {
                 RenderProperties.get(ref).getItemStackRenderer().renderByItem(ref, GUI, poseStack, wrapper, FULL_BRIGHT, NO_OVERLAY);
             } else if (model.isLayered()) {
@@ -513,6 +512,8 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
             // but we still have the depth for 3d items and blocks to be rendered correctly
             RenderSystem.clear(GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
         }
+
+        mc.getProfiler().popPush("subpocket");
 
         // read pixel under mouse
         RenderSystem.readPixels(
@@ -536,7 +537,10 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
 
     @SubscribeEvent
     public static void on(RegisterShadersEvent e) throws IOException {
-        e.registerShader(new ShaderInstance(e.getResourceManager(), ns("item_silhouette"), DefaultVertexFormat.BLOCK), shader -> SilhouetteRenderType.silhouette = shader);
+        e.registerShader(
+            new ShaderInstance(e.getResourceManager(), ns("item_silhouette"), DefaultVertexFormat.BLOCK),
+            shader -> SilhouetteRenderType.silhouette = shader
+        );
     }
 
     @SubscribeEvent
@@ -552,18 +556,16 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
     // just make a class to access protected constants instead of like AT entries and stuff, lol
     public static final class SilhouetteRenderType extends RenderType {
 
-        public static final EmptyTextureStateShard NO_TEXTURE = RenderType.NO_TEXTURE;
-
-        private static final Map<EmptyTextureStateShard, RenderType> types = new HashMap<>();
+        private static final Map<RenderType, RenderType> types = new HashMap<>();
 
         private static ShaderInstance silhouette;
 
         private static final RenderStateShard.ShaderStateShard SILHOUETTE_SHADER = new RenderStateShard.ShaderStateShard(() -> silhouette);
 
-        // idk what some parameters mean, this is just based on removing
+        // idek what some parameters mean, this is just based on removing
         // fog/lighting from RenderType.CUTOUT and ignoring texture rgb
-        public static RenderType get(EmptyTextureStateShard texture) {
-            return types.computeIfAbsent(texture, tex -> create("subpocket_item_silhouette",
+        public static RenderType get(RenderType renderType) {
+            return types.computeIfAbsent(renderType, $ -> create("subpocket_item_silhouette",
                 DefaultVertexFormat.BLOCK,
                 QUADS,
                 SMALL_BUFFER_SIZE,
@@ -571,7 +573,9 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
                 false,
                 CompositeState.builder()
                     .setShaderState(SILHOUETTE_SHADER)
-                    .setTextureState(tex)
+                    .setTextureState(renderType instanceof CompositeRenderType composite ?
+                        composite.state.textureState :
+                        RenderType.NO_TEXTURE)
                     .createCompositeState(false)));
         }
 

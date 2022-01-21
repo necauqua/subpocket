@@ -1,0 +1,9 @@
+{
+  "screens": [
+    {
+      "class": "dev.necauqua.mods.subpocket.SubpocketScreen",
+      "texture": "subpocket:textures/gui/subpocket.png",
+      "size": [203, 166]
+    }
+  ]
+}
