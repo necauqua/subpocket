@@ -479,6 +479,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
             var ref = stack.getRef();
             var model = itemRenderer.getModel(ref, null, mc.player, 0);
             var poseStack = new PoseStack();
+            poseStack.pushPose(); // allow mod renderers to pop the stack (e.g. sophisticated backpacks)
 
             var itemRenderer = mc.getItemRenderer();
 

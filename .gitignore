@@ -8,3 +8,5 @@
 
 # JVM error logs
 hs_err_pid*.log
+
+./test-mods

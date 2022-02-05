@@ -15,6 +15,7 @@ import static dev.necauqua.mods.subpocket.Subpocket.MODID;
 
 @Mod(MODID)
 public final class Subpocket {
+
     public static final String MODID = "subpocket";
 
     public Subpocket() {

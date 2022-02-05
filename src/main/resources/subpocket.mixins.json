@@ -1,7 +1,7 @@
 {
   "required": true,
   "package": "dev.necauqua.mods.subpocket.mixin",
-  "compatibilityLevel": "JAVA_8",
+  "compatibilityLevel": "JAVA_17",
   "refmap": "subpocket.refmap.json",
   "mixins": [
     "BlockBehaviourMixin",
