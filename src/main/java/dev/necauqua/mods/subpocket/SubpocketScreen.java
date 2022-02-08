@@ -43,6 +43,7 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.lwjgl.BufferUtils;
 
 import java.io.IOException;
@@ -74,7 +75,9 @@ import static org.lwjgl.opengl.GL11.*;
 @EventBusSubscriber(modid = MODID, bus = Bus.MOD, value = Dist.CLIENT)
 public final class SubpocketScreen extends AbstractContainerScreen<SubpocketContainer> {
 
-    private static final ResourceLocation TEXTURE = ns("textures/gui/subpocket.png");
+    private static final Logger LOGGER = LogManager.getLogger();
+
+    public static final ResourceLocation TEXTURE = ns("textures/gui/subpocket.png");
 
     // white color that you get when nothing was picked
     private static final int NONE = 0xFFFFFF;
@@ -86,9 +89,12 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
     private static final ByteBuffer outputColor = BufferUtils.createByteBuffer(4);
     private static final byte[] underMouseColor = new byte[3];
 
+    private static final Map<String, Throwable> pickingErrors = new LinkedHashMap<>();
+
     private final MnemonicButton<StackCountCondition> stackCountCondition;
     private final MnemonicButton<StackCountSize> stackCountSize;
     private final MnemonicButton<PickingMode> pickingMode;
+    private final ErrorPopup errorPopup;
 
     private PickingMode effectivePickingMode; // for holding alt
 
@@ -112,7 +118,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
 
     @SubscribeEvent
     public static void on(FMLClientSetupEvent e) {
-        MenuScreens.register(SubpocketContainer.TYPE, SubpocketScreen::new);
+        e.enqueueWork(() -> MenuScreens.register(SubpocketContainer.TYPE, SubpocketScreen::new));
     }
 
     public SubpocketScreen(SubpocketContainer container, Inventory playerInv, Component title) {
@@ -125,6 +131,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         stackCountCondition = new MnemonicButton<>(() -> isTabDown, Config.stackCountCondition);
         stackCountSize = new MnemonicButton<>(() -> isTabDown, Config.stackCountSize);
         pickingMode = new MnemonicButton<>(() -> isTabDown, Config.pickingMode);
+        errorPopup = new ErrorPopup(pickingErrors, this);
     }
 
     @Override
@@ -155,6 +162,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         addRenderableWidget(stackCountCondition.withPos(leftPos + 9, topPos + 129));
         addRenderableWidget(stackCountSize.withPos(leftPos + 9, topPos + 139));
         addRenderableWidget(pickingMode.withPos(leftPos + 9, topPos + 149));
+        addRenderableWidget(errorPopup.withPos(leftPos + 195, topPos + 3));
     }
 
     @Override
@@ -418,6 +426,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
             case GLFW_KEY_TAB -> isTabDown = true;
             case GLFW_KEY_GRAVE_ACCENT -> debug = true;
             default -> {
+                errorPopup.keyPressed(key, scanCode, modifiers);
                 return super.keyPressed(key, scanCode, modifiers);
             }
         }
@@ -430,6 +439,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
             case GLFW_KEY_TAB -> isTabDown = false;
             case GLFW_KEY_GRAVE_ACCENT -> debug = false;
             default -> {
+                errorPopup.keyReleased(key, scanCode, modifiers);
                 return super.keyReleased(key, scanCode, modifiers);
             }
         }
@@ -479,7 +489,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
             var ref = stack.getRef();
             var model = itemRenderer.getModel(ref, null, mc.player, 0);
             var poseStack = new PoseStack();
-            poseStack.pushPose(); // allow mod renderers to pop the stack (e.g. sophisticated backpacks)
+            poseStack.pushPose(); // allow mod renderers to pop the stack once (e.g. sophisticated backpacks)
 
             var itemRenderer = mc.getItemRenderer();
 
@@ -496,14 +506,27 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
 
             var bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
             var wrapper = (MultiBufferSource) renderType -> bufferSource.getBuffer(SilhouetteRenderType.get(renderType));
-            if (model.isCustomRenderer()) {
-                RenderProperties.get(ref).getItemStackRenderer().renderByItem(ref, GUI, poseStack, wrapper, FULL_BRIGHT, NO_OVERLAY);
-            } else if (model.isLayered()) {
-                ForgeHooksClient.drawItemLayered(itemRenderer, model, ref, poseStack, wrapper, FULL_BRIGHT, NO_OVERLAY, true);
-            } else {
-                var renderType = ItemBlockRenderTypes.getRenderType(ref, true);
-                itemRenderer.renderModelLists(model, ref, FULL_BRIGHT, NO_OVERLAY, poseStack, wrapper.getBuffer(renderType));
+
+            try {
+                if (model.isCustomRenderer()) {
+                    RenderProperties.get(ref).getItemStackRenderer().renderByItem(ref, GUI, poseStack, wrapper, FULL_BRIGHT, NO_OVERLAY);
+                } else if (model.isLayered()) {
+                    ForgeHooksClient.drawItemLayered(itemRenderer, model, ref, poseStack, wrapper, FULL_BRIGHT, NO_OVERLAY, true);
+                } else {
+                    var renderType = ItemBlockRenderTypes.getRenderType(ref, true);
+                    itemRenderer.renderModelLists(model, ref, FULL_BRIGHT, NO_OVERLAY, poseStack, wrapper.getBuffer(renderType));
+                }
+            } catch (Throwable throwable) {
+                var id = String.valueOf(ref.getItem().getRegistryName());
+                if (ref.hasTag()) {
+                    assert ref.getTag() != null;
+                    id += ref.getTag().toString();
+                }
+                if (pickingErrors.put(id, throwable) == null) {
+                    LOGGER.error("Failed to render the silhouette of {}", id, throwable);
+                }
             }
+
             bufferSource.endBatch();
 
             modelview.popPose();
