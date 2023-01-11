@@ -1,17 +1,5 @@
 {
   description = "Just a devShell with a JVM, to use on NixOS with direnv";
-  inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-      in {
-        devShell = pkgs.mkShell {
-          buildInputs = [ pkgs.jdk17 ];
-        };
-      }
-    );
+  inputs.basic-dev-shell.url = "github:necauqua/basic-dev-shell";
+  outputs = { self, basic-dev-shell }: basic-dev-shell.make (pkgs: [ pkgs.jdk17 ]);
 }

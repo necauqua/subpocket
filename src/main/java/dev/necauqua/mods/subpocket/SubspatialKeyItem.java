@@ -27,7 +27,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
@@ -36,29 +35,23 @@ import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.registries.RegistryObject;
 
 import javax.annotation.Nullable;
 import java.util.List;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
-import static net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus.MOD;
 
-@EventBusSubscriber(modid = MODID, bus = MOD)
+@EventBusSubscriber(modid = MODID)
 public final class SubspatialKeyItem extends Item implements MenuProvider {
 
-    public static final SubspatialKeyItem INSTANCE = new SubspatialKeyItem();
-
-    @SubscribeEvent
-    public static void on(RegistryEvent.Register<Item> e) {
-        e.getRegistry().register(INSTANCE);
-    }
+    public static RegistryObject<SubspatialKeyItem> INSTANCE = Subpocket.ITEMS.register("key", SubspatialKeyItem::new);
 
     public SubspatialKeyItem() {
         super(new Properties()
             .tab(CreativeModeTab.TAB_MISC)
             .stacksTo(1)
             .rarity(Rarity.EPIC));
-        setRegistryName(MODID, "key");
     }
 
     @Override
@@ -122,83 +115,79 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
         return new TextComponent("");
     }
 
-    @EventBusSubscriber(modid = MODID)
-    private static final class Interactions {
+    @SubscribeEvent
+    public static void on(RightClickBlock e) {
+        if (!Config.blockEnderChests.get() || e.getWorld().getBlockState(e.getPos()).getBlock() != Blocks.ENDER_CHEST) {
+            return;
+        }
+        var player = e.getPlayer();
+        if (player.isCreative() || !SubpocketCapability.get(player).isUnlocked()) {
+            return;
+        }
+        if (!player.level.isClientSide) {
+            player.displayClientMessage(new TranslatableComponent("popup." + MODID + ":blocked_ender_chest"), true);
+        }
+        e.setUseBlock(Event.Result.DENY);
+    }
 
-        @SubscribeEvent
-        public static void on(RightClickBlock e) {
-            if (!Config.blockEnderChests.get() || e.getWorld().getBlockState(e.getPos()).getBlock() != Blocks.ENDER_CHEST) {
-                return;
-            }
-            var player = e.getPlayer();
-            if (player.isCreative() || !SubpocketCapability.get(player).isUnlocked()) {
-                return;
-            }
-            if (!player.level.isClientSide) {
-                player.displayClientMessage(new TranslatableComponent("popup." + MODID + ":blocked_ender_chest"), true);
-            }
+    @SubscribeEvent
+    public static void on(EntityJoinWorldEvent event) {
+        var entity = event.getEntity();
+        if (!(entity instanceof ItemEntity entityItem) || entityItem.getItem().getItem() != INSTANCE.get()) {
+            return;
+        }
+        entity.setInvulnerable(true);
+        if (Config.subspatialKeyNoDespawn.get()) {
+            entityItem.age = -32768;
+        }
+    }
+
+    @SubscribeEvent
+    public static void on(PlayerEvent.BreakSpeed e) {
+        var player = e.getPlayer();
+        if (player.level.dimension() == Level.END
+            && e.getState().getBlock() == Blocks.ENDER_CHEST
+            && player.getMainHandItem().getItem() == SubspatialKeyItem.INSTANCE.get()
+            && player.level.getGameTime() % 20 == 0
+            && !SubpocketCapability.get(player).isUnlocked()) {
+            player.hurt(DamageSource.OUT_OF_WORLD, 1.0F);
+        }
+    }
+
+    @SubscribeEvent
+    public static void on(BlockEvent.BreakEvent e) {
+        var player = e.getPlayer();
+        if (player.level.dimension() != Level.END
+            || e.getState().getBlock() != Blocks.ENDER_CHEST
+            || player.getMainHandItem().getItem() != SubspatialKeyItem.INSTANCE.get()) {
+            return;
+        }
+        var storage = SubpocketCapability.get(player);
+        if (storage.isUnlocked()) {
+            return;
+        }
+        var level = player.level;
+        if (level.isClientSide) {
+            return;
+        }
+        var p = e.getPos();
+        var lightning = EntityType.LIGHTNING_BOLT.create(level);
+        assert lightning != null; // wtf
+        lightning.setPos(p.getX(), p.getY(), p.getZ());
+        level.addFreshEntity(lightning);
+        storage.unlock();
+        Network.syncToClient(player);
+    }
+
+    @SubscribeEvent
+    public static void on(PlayerInteractEvent.LeftClickBlock e) {
+        if (e.getItemStack().getItem() == INSTANCE.get()) {
             e.setUseBlock(Event.Result.DENY);
-        }
-
-        @SubscribeEvent
-        public static void on(EntityJoinWorldEvent event) {
-            var entity = event.getEntity();
-            if (!(entity instanceof ItemEntity entityItem) || entityItem.getItem().getItem() != INSTANCE) {
-                return;
-            }
-            entity.setInvulnerable(true);
-            if (Config.subspatialKeyNoDespawn.get()) {
-                entityItem.age = -32768;
-            }
-        }
-
-        @SubscribeEvent
-        public static void on(PlayerEvent.BreakSpeed e) {
-            var player = e.getPlayer();
-            if (player.level.dimension() == Level.END
-                && e.getState().getBlock() == Blocks.ENDER_CHEST
-                && player.getMainHandItem().getItem() == SubspatialKeyItem.INSTANCE
-                && player.level.getGameTime() % 20 == 0
-                && !SubpocketCapability.get(player).isUnlocked()) {
-                player.hurt(DamageSource.OUT_OF_WORLD, 1.0F);
-            }
-        }
-
-        @SubscribeEvent
-        public static void on(BlockEvent.BreakEvent e) {
-            var player = e.getPlayer();
-            if (player.level.dimension() != Level.END
-                || e.getState().getBlock() != Blocks.ENDER_CHEST
-                || player.getMainHandItem().getItem() != SubspatialKeyItem.INSTANCE) {
-                return;
-            }
-            var storage = SubpocketCapability.get(player);
-            if (storage.isUnlocked()) {
-                return;
-            }
-            var level = player.level;
-            if (level.isClientSide) {
-                return;
-            }
-            var p = e.getPos();
-            var lightning = EntityType.LIGHTNING_BOLT.create(level);
-            assert lightning != null; // wtf
-            lightning.setPos(p.getX(), p.getY(), p.getZ());
-            level.addFreshEntity(lightning);
-            storage.unlock();
-            Network.syncToClient(player);
-        }
-
-        @SubscribeEvent
-        public static void on(PlayerInteractEvent.LeftClickBlock e) {
-            if (e.getItemStack().getItem() == INSTANCE) {
-                e.setUseBlock(Event.Result.DENY);
-            }
         }
     }
 
     public static boolean allowCreativeDestroy(Player player, Level level, BlockPos pos) {
-        return player.getMainHandItem().getItem() != INSTANCE
+        return player.getMainHandItem().getItem() != INSTANCE.get()
             || level.getBlockState(pos).getDestroySpeed(level, pos) < 0.0F && !Config.allowBreakingUnbreakable.get();
     }
 }

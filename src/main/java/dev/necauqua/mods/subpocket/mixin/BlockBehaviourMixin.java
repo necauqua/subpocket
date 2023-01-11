@@ -21,7 +21,7 @@ public final class BlockBehaviourMixin {
     @Inject(method = "getDestroyProgress", at = @At("HEAD"), cancellable = true)
     void getDestroyProgress(BlockState state, Player player, BlockGetter blockGetter, BlockPos pos, CallbackInfoReturnable<Float> cir) {
         // if player uses the key
-        if (player.getMainHandItem().getItem() != SubspatialKeyItem.INSTANCE) {
+        if (player.getMainHandItem().getItem() != SubspatialKeyItem.INSTANCE.get()) {
             return;
         }
         // if block is not unbreakable or config allows unbreakables

@@ -323,7 +323,7 @@ public final class SubpocketCommand {
                 src.sendSuccess(new TranslatableComponent("command.subpocket:open.failure", player.getDisplayName()), true);
                 continue;
             }
-            player.openMenu(SubspatialKeyItem.INSTANCE);
+            player.openMenu(SubspatialKeyItem.INSTANCE.get());
             src.sendSuccess(new TranslatableComponent("command.subpocket:open.success", player.getDisplayName()), true);
             result++;
         }

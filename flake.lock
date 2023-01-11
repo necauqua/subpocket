@@ -1,5 +1,24 @@
 {
   "nodes": {
+    "basic-dev-shell": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1673412513,
+        "narHash": "sha256-LBWBY8sD2ggUU9UrTO51/b771YzSFuLtcM7vI5+baA0=",
+        "owner": "necauqua",
+        "repo": "basic-dev-shell",
+        "rev": "af807760178e12bd93c642b539a515c71a7939c5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "necauqua",
+        "repo": "basic-dev-shell",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "locked": {
         "lastModified": 1667395993,
@@ -17,11 +36,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1673399093,
-        "narHash": "sha256-WZQRqtLc1lV+jjNlRRf5/s8cUuh5V4Ec6Q2UnmGgxaE=",
+        "lastModified": 1673409444,
+        "narHash": "sha256-F3XVoEoshFLZlhdC0lZpVDbP/fBzDzvSCQ4UIQhHulM=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "aa478e283bb5c73b2cdd2f891251f0d669517b63",
+        "rev": "a6c9e5105948f14c2e9cd978e44cef83a3cfecb6",
         "type": "github"
       },
       "original": {
@@ -32,8 +51,7 @@
     },
     "root": {
       "inputs": {
-        "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "basic-dev-shell": "basic-dev-shell"
       }
     }
   },
