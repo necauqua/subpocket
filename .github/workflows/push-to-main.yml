@@ -12,17 +12,18 @@ jobs:
 
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Setup the JDK
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
+          distribution: zulu
           java-version: 17
 
       - name: Cache Gradle
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
@@ -44,15 +45,15 @@ jobs:
       - name: Get git info
         id: git-info
         run: |
-          echo "::set-output name=SHA_SHORT::$(git rev-parse --short HEAD)"
+          echo SHA_SHORT=$(git rev-parse --short HEAD) >> $GITHUB_OUTPUT
           TAG=$(git describe --exact-match HEAD 2> /dev/null || true)
           if [ -n "$TAG" ]; then
-            echo ::set-output name=VERSION::${TAG#v}
+            echo VERSION=${TAG#v} >> $GITHUB_OUTPUT
           fi
 
       - name: Upload build artifacts
         if: ${{ runner.os == 'Linux' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ github.event.repository.name }}-build-${{ steps.git-info.outputs.SHA_SHORT }}
           path: build/libs/
@@ -85,24 +86,25 @@ jobs:
 
     steps:
       - name: Checkout the main repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Setup the JDK
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
+          distribution: zulu
           java-version: 17
 
       - name: Cache Gradle
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
           restore-keys: ${{ runner.os }}-gradle
 
       - name: Checkout the wiki
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: ${{github.repository}}.wiki
           path: wiki
