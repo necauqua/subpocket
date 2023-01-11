@@ -6,6 +6,8 @@
 # intellij
 /.idea
 
+/.direnv
+
 # JVM error logs
 hs_err_pid*.log
 
