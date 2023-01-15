@@ -14,15 +14,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(ServerPlayerGameMode.class)
 public final class ServerPlayerGameModeMixin {
 
-    @Redirect(method = "handleBlockBreakAction", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;isCreative()Z", ordinal = 1))
-    boolean breakEvenInCreativeLul(ServerPlayerGameMode instance, BlockPos pos) {
-        return instance.isCreative() && SubspatialKeyItem.allowCreativeDestroy(player, level, pos);
-    }
-
     @Shadow
     @Final
     protected ServerPlayer player;
 
     @Shadow
     protected ServerLevel level;
+
+    @Redirect(method = "handleBlockBreakAction", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;isCreative()Z", ordinal = 1))
+    boolean breakEvenInCreativeLul(ServerPlayerGameMode instance, BlockPos pos) {
+        return instance.isCreative() && SubspatialKeyItem.allowCreativeDestroy(player, level, pos);
+    }
 }

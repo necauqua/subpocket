@@ -3,9 +3,11 @@ package dev.necauqua.mods.subpocket.eggs;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.exceptions.AuthenticationException;
 import com.mojang.authlib.exceptions.AuthenticationUnavailableException;
+import com.mojang.authlib.minecraft.InsecurePublicKeyException;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture.Type;
 import com.mojang.authlib.minecraft.MinecraftSessionService;
+import com.mojang.authlib.properties.Property;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -61,6 +63,11 @@ public final class Cape {
             @Override
             public GameProfile fillProfileProperties(GameProfile profile, boolean requireSecure) {
                 return original.fillProfileProperties(profile, requireSecure);
+            }
+
+            @Override
+            public String getSecurePropertyValue(Property property) throws InsecurePublicKeyException {
+                return original.getSecurePropertyValue(property);
             }
         };
     }

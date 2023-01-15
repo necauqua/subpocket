@@ -17,10 +17,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegisterEvent;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -56,13 +57,13 @@ public final class SubpocketContainer extends AbstractContainerMenu {
     private final ISubpocket storage;
 
     @SubscribeEvent
-    public static void on(RegistryEvent.Register<MenuType<?>> e) {
-        e.getRegistry().register(TYPE.setRegistryName(ns("container")));
+    public static void on(RegisterEvent e) {
+        e.register(ForgeRegistries.Keys.MENU_TYPES, ns("container"), () -> TYPE);
     }
 
     public SubpocketContainer(int windowId, Inventory playerInv) {
         super(TYPE, windowId);
-        this.player = playerInv.player;
+        player = playerInv.player;
         storage = SubpocketCapability.get(player);
 
         // sync on every open
@@ -91,7 +92,7 @@ public final class SubpocketContainer extends AbstractContainerMenu {
 
                 @Override
                 public boolean mayPickup(Player player) {
-                    var itemstack = this.getItem();
+                    var itemstack = getItem();
                     return itemstack.isEmpty()
                         || player.isCreative()
                         || !EnchantmentHelper.hasBindingCurse(itemstack);

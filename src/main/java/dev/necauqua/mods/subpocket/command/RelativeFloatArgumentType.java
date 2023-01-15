@@ -7,20 +7,30 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import net.minecraft.commands.synchronization.ArgumentSerializer;
-import net.minecraft.commands.synchronization.ArgumentTypes;
-import net.minecraft.commands.synchronization.brigadier.BrigadierArgumentSerializers;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.synchronization.ArgumentTypeInfo;
+import net.minecraft.commands.synchronization.ArgumentTypeInfos;
+import net.minecraft.commands.synchronization.ArgumentUtils;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegisterEvent;
 
 import java.util.concurrent.CompletableFuture;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
+import static dev.necauqua.mods.subpocket.Subpocket.ns;
 
+@EventBusSubscriber(modid = MODID, bus = Bus.MOD)
 public record RelativeFloatArgumentType(float minimum,
-                                        float maximum) implements ArgumentType<RelativeFloatArgumentType.RelativeFloat> {
+                                        float maximum) implements ArgumentType<RelativeFloatArgumentType.RelativeFloat>, ArgumentTypeInfo.Template<RelativeFloatArgumentType> {
 
-    static {
-        ArgumentTypes.register(MODID + ":rel_float", RelativeFloatArgumentType.class, new Serializer());
+    @SubscribeEvent
+    public static void on(RegisterEvent e) {
+        e.register(ForgeRegistries.Keys.COMMAND_ARGUMENT_TYPES, ns("rel_float"), () -> RelativeFloatArgumentTypeInfo.INSTANCE);
+        ArgumentTypeInfos.registerByClass(RelativeFloatArgumentType.class, RelativeFloatArgumentTypeInfo.INSTANCE);
     }
 
     public static RelativeFloatArgumentType relativeFloat() {
@@ -75,6 +85,16 @@ public record RelativeFloatArgumentType(float minimum,
     }
 
     @Override
+    public RelativeFloatArgumentType instantiate(CommandBuildContext p_235378_) {
+        return this;
+    }
+
+    @Override
+    public ArgumentTypeInfo<RelativeFloatArgumentType, ?> type() {
+        return RelativeFloatArgumentTypeInfo.INSTANCE;
+    }
+
+    @Override
     public String toString() {
         if (minimum == Float.MIN_VALUE && maximum == Float.MAX_VALUE) {
             return "relFloat()";
@@ -103,12 +123,15 @@ public record RelativeFloatArgumentType(float minimum,
         }
     }
 
-    private static final class Serializer implements ArgumentSerializer<RelativeFloatArgumentType> {
+    private static final class RelativeFloatArgumentTypeInfo implements ArgumentTypeInfo<RelativeFloatArgumentType, RelativeFloatArgumentType> {
 
+        public static final RelativeFloatArgumentTypeInfo INSTANCE = new RelativeFloatArgumentTypeInfo();
+
+        @Override
         public void serializeToNetwork(RelativeFloatArgumentType argument, FriendlyByteBuf buffer) {
             var min = argument.minimum != Float.MIN_VALUE;
             var max = argument.maximum != Float.MAX_VALUE;
-            buffer.writeByte(BrigadierArgumentSerializers.createNumberFlags(min, max));
+            buffer.writeByte(ArgumentUtils.createNumberFlags(min, max));
             if (min) {
                 buffer.writeFloat(argument.minimum);
             }
@@ -117,13 +140,15 @@ public record RelativeFloatArgumentType(float minimum,
             }
         }
 
+        @Override
         public RelativeFloatArgumentType deserializeFromNetwork(FriendlyByteBuf buffer) {
             var minmax = buffer.readByte();
-            var min = BrigadierArgumentSerializers.numberHasMin(minmax) ? buffer.readFloat() : Float.MIN_VALUE;
-            var max = BrigadierArgumentSerializers.numberHasMax(minmax) ? buffer.readFloat() : Float.MAX_VALUE;
+            var min = ArgumentUtils.numberHasMin(minmax) ? buffer.readFloat() : Float.MIN_VALUE;
+            var max = ArgumentUtils.numberHasMax(minmax) ? buffer.readFloat() : Float.MAX_VALUE;
             return RelativeFloatArgumentType.relativeFloat(min, max);
         }
 
+        @Override
         public void serializeToJson(RelativeFloatArgumentType argument, JsonObject json) {
             if (argument.minimum != Float.MIN_VALUE) {
                 json.addProperty("min", argument.minimum);
@@ -131,6 +156,11 @@ public record RelativeFloatArgumentType(float minimum,
             if (argument.maximum != Float.MAX_VALUE) {
                 json.addProperty("max", argument.maximum);
             }
+        }
+
+        @Override
+        public RelativeFloatArgumentType unpack(RelativeFloatArgumentType argument) {
+            return argument;
         }
     }
 }

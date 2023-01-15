@@ -56,7 +56,7 @@ public final class Network {
             var nbt = e.getPayload().readNbt();
             var ctx = e.getSource().get();
             ctx.enqueueWork(() -> {
-                Player player = Minecraft.getInstance().player;
+                var player = Minecraft.getInstance().player;
                 if (player != null) {
                     SubpocketCapability.get(player).deserializeNBT(nbt);
                 } else {

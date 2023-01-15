@@ -5,23 +5,23 @@
 
 package dev.necauqua.mods.subpocket;
 
-import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
-import net.minecraftforge.common.loot.GlobalLootModifierSerializer;
+import net.minecraftforge.common.loot.IGlobalLootModifier;
 import net.minecraftforge.common.loot.LootModifier;
 import net.minecraftforge.event.LootTableLoadEvent;
-import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
+import net.minecraftforge.registries.ForgeRegistries.Keys;
+import net.minecraftforge.registries.RegisterEvent;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
 import static dev.necauqua.mods.subpocket.Subpocket.MODID;
@@ -53,7 +53,11 @@ public final class LootModifiers {
             .build());
     }
 
+
+    @EventBusSubscriber(modid = MODID, bus = Bus.MOD)
     private static final class ClearDropsModifier extends LootModifier {
+
+        public static final Codec<ClearDropsModifier> CODEC = RecordCodecBuilder.create(inst -> codecStart(inst).apply(inst, ClearDropsModifier::new));
 
         private ClearDropsModifier(LootItemCondition[] conditions) {
             super(conditions);
@@ -61,31 +65,18 @@ public final class LootModifiers {
 
         @Nonnull
         @Override
-        protected List<ItemStack> doApply(List<ItemStack> generatedLoot, LootContext context) {
-            return new ArrayList<>();
+        protected ObjectArrayList<ItemStack> doApply(ObjectArrayList<ItemStack> generatedLoot, LootContext context) {
+            return new ObjectArrayList<>();
         }
 
-        private LootItemCondition[] getConditions() {
-            return conditions;
+        @Override
+        public Codec<? extends IGlobalLootModifier> codec() {
+            return CODEC;
         }
-    }
-
-    @EventBusSubscriber(modid = MODID, bus = Bus.MOD)
-    private static final class ClearDropsModifierSerializer extends GlobalLootModifierSerializer<ClearDropsModifier> {
 
         @SubscribeEvent
-        public static void on(RegistryEvent.Register<GlobalLootModifierSerializer<?>> evt) {
-            evt.getRegistry().register(new ClearDropsModifierSerializer().setRegistryName(ns("clear_drops")));
-        }
-
-        @Override
-        public ClearDropsModifier read(ResourceLocation location, JsonObject object, LootItemCondition[] conditions) {
-            return new ClearDropsModifier(conditions);
-        }
-
-        @Override
-        public JsonObject write(ClearDropsModifier instance) {
-            return makeConditions(instance.getConditions());
+        public static void on(RegisterEvent evt) {
+            evt.register(Keys.GLOBAL_LOOT_MODIFIER_SERIALIZERS, ns("clear_drops"), () -> ClearDropsModifier.CODEC);
         }
     }
 }

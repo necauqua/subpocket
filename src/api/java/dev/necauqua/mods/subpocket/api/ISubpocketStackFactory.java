@@ -7,6 +7,7 @@ package dev.necauqua.mods.subpocket.api;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import javax.annotation.Nonnull;
 import java.math.BigInteger;
@@ -56,13 +57,13 @@ public interface ISubpocketStackFactory {
      * Creates positioned big stack with random coordinates.
      * This is used when shift-clicking a new item into the subpocket.
      *
-     * @param ref stack given for reference.
+     * @param ref   stack given for reference.
      * @param count given count of items.
      * @return stack instance.
      **/
     @Nonnull
     default ISubpocketStack create(ItemStack ref, BigInteger count) {
-        var a = Objects.hashCode(ref.getItem().getRegistryName());
+        var a = Objects.hashCode(ForgeRegistries.ITEMS.getKey(ref.getItem()));
         var b = Objects.hashCode(ref.getTag());
         var rand = new Random(31L * a + b); // meh
         var x = rand.nextInt(160 - 18) + 1;

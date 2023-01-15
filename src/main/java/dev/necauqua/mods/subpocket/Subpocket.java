@@ -27,7 +27,9 @@ public final class Subpocket {
     public Subpocket() {
         SubpocketAPI.instance = SubpocketAPIImpl.INSTANCE;
         Config.init();
-        ITEMS.register(FMLJavaModLoadingContext.get().getModEventBus());
+
+        var bus = FMLJavaModLoadingContext.get().getModEventBus();
+        ITEMS.register(bus);
     }
 
     public static ResourceLocation ns(String path) {

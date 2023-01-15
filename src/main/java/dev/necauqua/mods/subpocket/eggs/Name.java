@@ -1,17 +1,14 @@
 package dev.necauqua.mods.subpocket.eggs;
 
-import net.minecraft.client.GuiMessage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.*;
+import net.minecraft.network.chat.contents.LiteralContents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.FormattedCharSink;
 import net.minecraft.world.entity.Entity;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.client.event.ClientChatReceivedEvent;
-import net.minecraftforge.client.event.RenderNameplateEvent;
-import net.minecraftforge.event.TickEvent.ClientTickEvent;
-import net.minecraftforge.event.TickEvent.Phase;
+import net.minecraftforge.client.event.RenderNameTagEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -35,13 +32,11 @@ public final class Name {
     private static final String USERNAME = "necauqua";
     private static final TextColor COLOR = TextColor.fromLegacyFormat(LIGHT_PURPLE);
 
-    private static boolean incoming = false;
-    private static final Set<GuiMessage<FormattedCharSequence>> handled = Collections.newSetFromMap(new WeakHashMap<>());
-    private static final Map<Entity, Component> nameplates = new WeakHashMap<>();
+    private static final Map<Entity, Component> nametags = new WeakHashMap<>();
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void on(PlayerEvent.NameFormat e) {
-        if (NECAUQUA.equals(e.getPlayer().getGameProfile().getId())) {
+        if (NECAUQUA.equals(e.getEntity().getGameProfile().getId())) {
             // sadly there is no reason to just return CoolComponent here
             // instead of doing cringe chat stuff below
             // because it does not survive being sent through the network as there are
@@ -51,40 +46,16 @@ public final class Name {
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void on(RenderNameplateEvent e) {
+    public static void on(RenderNameTagEvent e) {
         if (USERNAME.equals(e.getOriginalContent().getString())) {
-            e.setContent(nameplates.computeIfAbsent(e.getEntity(), $ -> new CoolComponent()));
+            e.setContent(nametags.computeIfAbsent(e.getEntity(), $ -> new CoolComponent()));
         }
     }
 
-    @SubscribeEvent
-    public static void on(ClientChatReceivedEvent e) {
-        // 'run code on the next tick'
-        // so that drawnGuiMessages are populated
-        // with recreated split text components
-        incoming = true;
-    }
-
-    @SubscribeEvent
-    public static void on(ClientTickEvent e) {
-        if (e.phase == Phase.START) {
-            return;
-        }
-
-        // and then short circuit out unless we got
-        // scheduled from that chat received event
-        if (!incoming) {
-            return;
-        }
-        incoming = false;
-
-        var mc = Minecraft.getInstance();
-        var ingameGUI = mc.gui;
-        for (var chatLine : ingameGUI.getChat().trimmedMessages) {
-            if (handled.add(chatLine) && extractString(chatLine.getMessage()).contains(USERNAME)) {
-                chatLine.message = new TickReplacer(chatLine.message, () -> obfuscateName(USERNAME));
-            }
-        }
+    public static FormattedCharSequence enhance(FormattedCharSequence line) {
+        return extractString(line).contains(USERNAME) ?
+            new TickReplacer(line, () -> obfuscateName(USERNAME)) :
+            line;
     }
 
     private static String extractString(FormattedCharSequence reorderingProcessor) {
@@ -106,7 +77,7 @@ public final class Name {
         // an easter egg inside of an easter egg, lol
         var observer = Minecraft.getInstance().player;
         if (observer != null && !observer.getGameProfile().getId().equals(NECAUQUA)) { // prevent infinite recursion because of NameFormat
-            var hovered = new TextComponent("hello, ").append(observer.getDisplayName());
+            var hovered = Component.literal("hello, ").append(observer.getDisplayName());
             style = style.withHoverEvent(new HoverEvent(SHOW_TEXT, hovered));
         }
 
@@ -123,11 +94,11 @@ public final class Name {
         Arrays.setAll(indices, i -> rng.nextInt(codePoints.length));
 
         var finalStyle = style;
-        var obfuscated = style.setObfuscated(true);
+        var obfuscated = style.withObfuscated(true);
         return consumer -> {
             var ptr = indices.length - 1;
             for (var i = 0; i < codePoints.length; i++) {
-                // if there are obf indices left and we hit one - make it obf:
+                // if there are obf indices left, and we hit one - make it obf:
                 //   this is going to miss a few of them since indices are unsorted
                 //   but this is exactly what I want - *up to* half the characters, not *always*
                 Style s;
@@ -145,22 +116,23 @@ public final class Name {
         };
     }
 
-    private static final class CoolComponent extends BaseComponent {
+    private static final class CoolComponent extends MutableComponent {
 
-        private final TickReplacer visual = new TickReplacer(null, () -> obfuscateName(USERNAME));
+        private static final LiteralContents CONTENTS = new LiteralContents(USERNAME);
 
-        @Override
-        public String getContents() {
-            return USERNAME;
+        private final TickReplacer replacer = new TickReplacer(null, () -> obfuscateName(USERNAME));
+
+        private CoolComponent() {
+            super(CONTENTS, Collections.emptyList(), Style.EMPTY);
         }
 
         @Override
         public FormattedCharSequence getVisualOrderText() {
-            return visual;
+            return replacer;
         }
 
         @Override
-        public BaseComponent plainCopy() {
+        public MutableComponent plainCopy() {
             return new CoolComponent();
         }
     }
@@ -235,7 +207,7 @@ public final class Name {
                 // .. and don't forget to send the code point that failed us
                 return consumer.accept(index, style, codePoint);
             }
-            // else, we are either done and then we send in a replacement ..
+            // else, we are either done, and then we send in a replacement ..
             if (bufferPointer == target.length - 1) {
                 if (!replacement.accept(consumer)) {
                     return false;

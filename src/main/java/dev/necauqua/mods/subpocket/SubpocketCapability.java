@@ -29,7 +29,7 @@ import static net.minecraft.world.entity.Entity.RemovalReason.CHANGED_DIMENSION;
 @EventBusSubscriber(modid = MODID)
 public final class SubpocketCapability {
 
-    public static final Capability<ISubpocket> INSTANCE = CapabilityManager.get(new CapabilityToken<>(){});
+    public static final Capability<ISubpocket> INSTANCE = CapabilityManager.get(new CapabilityToken<>() {});
 
     public static ISubpocket get(Player player) {
         return player.getCapability(INSTANCE)
@@ -59,7 +59,7 @@ public final class SubpocketCapability {
         if (hack) {
             original.revive();
         }
-        get(e.getPlayer()).cloneFrom(get(original));
+        get(e.getEntity()).cloneFrom(get(original));
         if (hack) {
             original.remove(CHANGED_DIMENSION);
         }
@@ -67,16 +67,16 @@ public final class SubpocketCapability {
 
     @SubscribeEvent
     public static void on(PlayerLoggedInEvent e) {
-        Network.syncToClient(e.getPlayer());
+        Network.syncToClient(e.getEntity());
     }
 
     @SubscribeEvent
     public static void on(PlayerChangedDimensionEvent e) {
-        Network.syncToClient(e.getPlayer());
+        Network.syncToClient(e.getEntity());
     }
 
     @SubscribeEvent
     public static void on(PlayerRespawnEvent e) {
-        Network.syncToClient(e.getPlayer());
+        Network.syncToClient(e.getEntity());
     }
 }

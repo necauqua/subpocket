@@ -9,9 +9,8 @@ import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.config.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
@@ -27,14 +26,16 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.event.entity.EntityJoinWorldEvent;
+import net.minecraftforge.event.CreativeModeTabEvent;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock;
-import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.registries.RegistryObject;
 
 import javax.annotation.Nullable;
@@ -49,9 +50,19 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
 
     public SubspatialKeyItem() {
         super(new Properties()
-            .tab(CreativeModeTab.TAB_MISC)
             .stacksTo(1)
             .rarity(Rarity.EPIC));
+    }
+
+    @EventBusSubscriber(modid = MODID, bus = Bus.MOD)
+    private static final class CreativeTabHandler {
+
+        @SubscribeEvent
+        public static void on(CreativeModeTabEvent.BuildContents e) {
+            if (e.getTab() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
+                e.accept(INSTANCE);
+            }
+        }
     }
 
     @Override
@@ -101,7 +112,7 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
     @OnlyIn(Dist.CLIENT)
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         if (!isFoil(stack)) {
-            tooltip.add(new TranslatableComponent("item." + MODID + ":key.desc"));
+            tooltip.add(Component.translatable("item." + MODID + ":key.desc"));
         }
     }
 
@@ -112,26 +123,26 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
 
     @Override
     public Component getDisplayName() {
-        return new TextComponent("");
+        return CommonComponents.EMPTY;
     }
 
     @SubscribeEvent
     public static void on(RightClickBlock e) {
-        if (!Config.blockEnderChests.get() || e.getWorld().getBlockState(e.getPos()).getBlock() != Blocks.ENDER_CHEST) {
+        if (!Config.blockEnderChests.get() || e.getLevel().getBlockState(e.getPos()).getBlock() != Blocks.ENDER_CHEST) {
             return;
         }
-        var player = e.getPlayer();
+        var player = e.getEntity();
         if (player.isCreative() || !SubpocketCapability.get(player).isUnlocked()) {
             return;
         }
         if (!player.level.isClientSide) {
-            player.displayClientMessage(new TranslatableComponent("popup." + MODID + ":blocked_ender_chest"), true);
+            player.displayClientMessage(Component.translatable("popup." + MODID + ":blocked_ender_chest"), true);
         }
         e.setUseBlock(Event.Result.DENY);
     }
 
     @SubscribeEvent
-    public static void on(EntityJoinWorldEvent event) {
+    public static void on(EntityJoinLevelEvent event) {
         var entity = event.getEntity();
         if (!(entity instanceof ItemEntity entityItem) || entityItem.getItem().getItem() != INSTANCE.get()) {
             return;
@@ -144,7 +155,7 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
 
     @SubscribeEvent
     public static void on(PlayerEvent.BreakSpeed e) {
-        var player = e.getPlayer();
+        var player = e.getEntity();
         if (player.level.dimension() == Level.END
             && e.getState().getBlock() == Blocks.ENDER_CHEST
             && player.getMainHandItem().getItem() == SubspatialKeyItem.INSTANCE.get()

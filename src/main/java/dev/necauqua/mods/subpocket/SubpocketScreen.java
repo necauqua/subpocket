@@ -12,7 +12,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
-import com.mojang.math.Matrix4f;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.config.Config;
@@ -26,8 +25,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
@@ -35,15 +32,18 @@ import net.minecraft.world.item.Items;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.ForgeHooksClient;
-import net.minecraftforge.client.RenderProperties;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.client.event.RegisterShadersEvent;
+import net.minecraftforge.client.extensions.common.IClientItemExtensions;
+import net.minecraftforge.client.extensions.common.IClientItemExtensions.FontContext;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 
 import java.io.IOException;
@@ -78,6 +78,9 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
     private static final Logger LOGGER = LogManager.getLogger();
 
     public static final ResourceLocation TEXTURE = ns("textures/gui/subpocket.png");
+
+    private static final ModelResourceLocation TRIDENT_LOCATION = ModelResourceLocation.vanilla("trident", "inventory");
+    private static final ModelResourceLocation SPYGLASS_LOCATION = ModelResourceLocation.vanilla("spyglass", "inventory");
 
     // white color that you get when nothing was picked
     private static final int NONE = 0xFFFFFF;
@@ -139,11 +142,10 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         // our own non-nullable mc instance, lol
         mc = Objects.requireNonNull(super.minecraft);
 
-        smolFont = new Font(mc.font.fonts) {
+        smolFont = new Font(mc.font.fonts, false) {
             @Override
             public int drawInBatch(String text, float x, float y, int color, boolean dropShadow, Matrix4f transform, MultiBufferSource bufferSource, boolean seeThrough, int effectColor, int packedLightCoords, boolean rtl) {
-                var adjusted = transform.copy();
-                adjusted.multiply(Matrix4f.createScaleMatrix(0.5F, 0.5F, 1));
+                var adjusted = transform.scale(0.5F, 0.5F, 1, new Matrix4f());
                 return super.drawInBatch(text,
                     x * 2 + font.width(text),
                     y * 2 + font.lineHeight / 2.0F,
@@ -262,25 +264,25 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         if (debug && mouseInside) {
             List<Component> lines = new ArrayList<>();
 
-            lines.add(new TextComponent("debug:").withStyle(DARK_PURPLE, BOLD));
-            lines.add(new TextComponent(format("scale factor: %.2f", scale)));
-            lines.add(new TextComponent(format("local mouse coords: [%.2f, %.2f]", localX, localY)));
+            lines.add(Component.literal("debug:").withStyle(DARK_PURPLE, BOLD));
+            lines.add(Component.literal(format("scale factor: %.2f", scale)));
+            lines.add(Component.literal(format("local mouse coords: [%.2f, %.2f]", localX, localY)));
 
             if (effectivePickingMode == PickingMode.PIXEL) {
-                lines.add(new TextComponent(format("color under mouse: [%d, %d, %d]",
+                lines.add(Component.literal(format("color under mouse: [%d, %d, %d]",
                     underMouseColor[0] & 0xff,
                     underMouseColor[1] & 0xff,
                     underMouseColor[2] & 0xff)));
             } else {
-                lines.add(new TextComponent(format("expected color: [%d, %d, %d]",
+                lines.add(Component.literal(format("expected color: [%d, %d, %d]",
                     underMouseIndex >> 16 & 0xff,
                     underMouseIndex >> 8 & 0xff,
                     underMouseIndex & 0xff)));
             }
 
             if (underMouseIndex != NONE) {
-                lines.add(new TextComponent(format("computed index: %d", underMouseIndex)));
-                lines.add(new TextComponent(format("hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY())));
+                lines.add(Component.literal(format("computed index: %d", underMouseIndex)));
+                lines.add(Component.literal(format("hovered stack pos: %.2f, %.2f", underMouse.getX(), underMouse.getY())));
             }
 
             renderTooltip(poseStack, lines, Optional.empty(), leftPos + 25, topPos + 98, font);
@@ -296,11 +298,11 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         var tooltip = getTooltipFromItem(ref);
 
         if (underMouse.getCount().compareTo(BigInteger.ONE) > 0) {
-            tooltip.add(1, new TranslatableComponent("gui.subpocket:it.quantity",
+            tooltip.add(1, Component.translatable("gui.subpocket:it.quantity",
                 hasShiftDown() ? underMouse.getCount().toString() :
                     underMouse.getShortNumberString(Config.overflowType.get())));
         }
-        var font = RenderProperties.get(ref).getFont(ref);
+        var font = IClientItemExtensions.of(ref).getFont(ref, FontContext.TOOLTIP);
         renderTooltip(poseStack, tooltip, ref.getTooltipImage(), mouseX + 12, mouseY, font != null ? font : this.font);
     }
 
@@ -467,7 +469,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         var originalProjection = RenderSystem.getProjectionMatrix();
         // setup same projection matrix as MC uses for inventory item rendering,
         // but width/height are changed to ours
-        RenderSystem.setProjectionMatrix(Matrix4f.orthographic(0.0F, framebuffer.width, 0.0F, framebuffer.height, 1000.0F, 3000.0F));
+        RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0.0F, framebuffer.width, framebuffer.height, 0.0F, 1000.0F, 3000.0F));
 
         mc.getProfiler().popPush("subpocket.silhouettes");
 
@@ -495,11 +497,12 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
 
             // wtf is this, vanilla
             if (ref.is(Items.TRIDENT)) {
-                model = itemRenderer.getItemModelShaper().getModelManager().getModel(new ModelResourceLocation("minecraft:trident#inventory"));
+                model = itemRenderer.getItemModelShaper().getModelManager().getModel(TRIDENT_LOCATION);
             } else if (ref.is(Items.SPYGLASS)) {
-                model = itemRenderer.getItemModelShaper().getModelManager().getModel(new ModelResourceLocation("minecraft:spyglass#inventory"));
+                model = itemRenderer.getItemModelShaper().getModelManager().getModel(SPYGLASS_LOCATION);
             }
 
+            //noinspection UnstableApiUsage - well, we're inlining vanilla code here ¯\_(ツ)_/¯
             model = ForgeHooksClient.handleCameraTransforms(poseStack, model, GUI, false);
 
             poseStack.translate(-0.5D, -0.5D, -0.5D);
@@ -509,15 +512,16 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
 
             try {
                 if (model.isCustomRenderer()) {
-                    RenderProperties.get(ref).getItemStackRenderer().renderByItem(ref, GUI, poseStack, wrapper, FULL_BRIGHT, NO_OVERLAY);
-                } else if (model.isLayered()) {
-                    ForgeHooksClient.drawItemLayered(itemRenderer, model, ref, poseStack, wrapper, FULL_BRIGHT, NO_OVERLAY, true);
+                    IClientItemExtensions.of(ref).getCustomRenderer().renderByItem(ref, GUI, poseStack, wrapper, FULL_BRIGHT, NO_OVERLAY);
                 } else {
-                    var renderType = ItemBlockRenderTypes.getRenderType(ref, true);
-                    itemRenderer.renderModelLists(model, ref, FULL_BRIGHT, NO_OVERLAY, poseStack, wrapper.getBuffer(renderType));
+                    for (var pass : model.getRenderPasses(ref, false)) {
+                        for (var renderType : pass.getRenderTypes(ref, false)) {
+                            itemRenderer.renderModelLists(pass, ref, FULL_BRIGHT, NO_OVERLAY, poseStack, wrapper.getBuffer(renderType));
+                        }
+                    }
                 }
             } catch (Throwable throwable) {
-                var id = String.valueOf(ref.getItem().getRegistryName());
+                var id = String.valueOf(ForgeRegistries.ITEMS.getKey(ref.getItem()));
                 if (ref.hasTag()) {
                     assert ref.getTag() != null;
                     id += ref.getTag().toString();
@@ -562,7 +566,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
     @SubscribeEvent
     public static void on(RegisterShadersEvent e) throws IOException {
         e.registerShader(
-            new ShaderInstance(e.getResourceManager(), ns("item_silhouette"), DefaultVertexFormat.BLOCK),
+            new ShaderInstance(e.getResourceProvider(), ns("item_silhouette"), DefaultVertexFormat.BLOCK),
             shader -> SilhouetteRenderType.silhouette = shader
         );
     }

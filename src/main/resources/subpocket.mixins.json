@@ -8,6 +8,7 @@
     "ServerPlayerGameModeMixin"
   ],
   "client": [
+    "ChatComponentMixin",
     "MultiPlayerGameModeMixin"
   ],
   "minVersion": "0.8"
