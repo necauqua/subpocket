@@ -3,7 +3,7 @@
 [![Modrinth Downloads](https://img.shields.io/modrinth/dt/subpocket?logo=Modrinth&label=&color=2d2d2d&style=flat-square)](https://modrinth.com/mod/subpocket)
 [![CurseForge Downloads](http://cf.way2muchnoise.eu/subpocket.svg?badge_style=flat)](https://www.curseforge.com/minecraft/mc-mods/subpocket)
 <br>
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/necauqua/subpocket/push-to-main.yml?branch=main&style=flat-square)](https://github.com/necauqua/subpocket-test/actions/workflows/push-to-main.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/necauqua/subpocket/push-to-main.yml?branch=main&style=flat-square)](https://github.com/necauqua/subpocket/actions/workflows/push-to-main.yml)
 [![Latest Release](https://img.shields.io/github/release/necauqua/subpocket.svg?label=last%20release&lcolor=2d2d2d&style=flat-square)](https://modrinth.com/mod/subpocket/version/latest)
 <br>
 [![Follow on Modrinth](https://img.shields.io/modrinth/followers/subpocket?label=follow%20on%20Modrinth&style=social)](https://modrinth.com/mod/subpocket)
@@ -20,7 +20,7 @@ the needed items, not to speak about any modpacks.
 ## Installation
 
 Install Forge following their installation instructions,
-[download](https://www.curseforge.com/minecraft/mc-mods/subpocket/files)
+[download](https://modrinth.com/mod/subpocket/versions)
 this mod jar file for your version of the game and place it into your 'mods' folder.
 When updating, be sure to remove the old version as well.
 
