@@ -3,7 +3,7 @@ buildscript {
         maven { url = 'https://maven.necauqua.dev/' }
     }
     dependencies {
-        classpath 'dev.necauqua:necauqua-mod:0.8.0'
+        classpath 'dev.necauqua:necauqua-mod:0.9.0'
     }
 }
 
@@ -13,7 +13,8 @@ sourceSets { api }
 
 nmod {
     curseID = '275425'
-    version = '1.19-9.0.0.0'
+    modrinthID = 'hVTSaz1j'
+    mcversion = '1.19.*'
     forge = '1.19.3-44.1.0'
     mappings = '1.19.3'
     javaVersion = 17

@@ -1,0 +1,36 @@
+name: Manual
+on:
+  workflow_dispatch:
+    inputs:
+      release-github:
+        description: "Publish to GitHub Releases (only works on a tag!)"
+        default: false
+        type: boolean
+      release-maven:
+        description: "Publish to Maven (maven.necauqua.dev and GitHub Packages)"
+        default: false
+        type: boolean
+      release-curse:
+        description: "Publish to CurseForge"
+        default: false
+        type: boolean
+      release-modrinth:
+        description: "Publish to Modrinth"
+        default: false
+        type: boolean
+      dry-run:
+        description: "Dry run: don't actually upload when publishing, for debug"
+        default: true
+        type: boolean
+jobs:
+  mcmod-workflow:
+    uses: necauqua/mcmod-workflow/.github/workflows/release.yml@main
+    with:
+      release-github: ${{ inputs.release-github }}
+      release-maven: ${{ inputs.release-maven }}
+      release-curse: ${{ inputs.release-curse }}
+      release-modrinth: ${{ inputs.release-modrinth }}
+      dry-run: ${{ inputs.dry-run }}
+    secrets:
+      KEYSTORE: ${{ secrets.KEYSTORE }}
+      GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
