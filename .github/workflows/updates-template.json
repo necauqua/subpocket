@@ -1,17 +1,17 @@
 {
-    "homepage": "https://www.curseforge.com/minecraft/mc-mods/subpocket",
-    "promos": {
-        "1.12.1-latest": "1.0.2",
-        "1.12.1-recommended": "1.0.2",
-        "1.12-latest": "1.0.2",
-        "1.12-recommended": "1.0.2"
-    },
-    "1.12.1": {
-        "1.0.2": "- Now this can run on both 1.12 and 1.12.1\n- Fix ender chests being always blocked in creative\n- Fix 'help', 'show' and 'get' subcommands requiring op to run. Closes #2",
-        "1.0.1": "Update for 1.12.1"
-    },
-    "1.12": {
-        "1.0.2": "- Now this can run on both 1.12 and 1.12.1\n- Fix ender chests being always blocked in creative\n- Fix 'help', 'show' and 'get' subcommands requiring op to run. Closes #2",
-        "1.0.0": "The first release."
-    }
+  "homepage": "https://modrinth.com/mod/subpocket",
+  "promos": {
+    "1.12.1-latest": "1.0.2",
+    "1.12.1-recommended": "1.0.2",
+    "1.12-latest": "1.0.2",
+    "1.12-recommended": "1.0.2"
+  },
+  "1.12.1": {
+    "1.0.2": "- Now this can run on both 1.12 and 1.12.1\n- Fix ender chests being always blocked in creative\n- Fix 'help', 'show' and 'get' subcommands requiring op to run. Closes #2",
+    "1.0.1": "Update for 1.12.1"
+  },
+  "1.12": {
+    "1.0.2": "- Now this can run on both 1.12 and 1.12.1\n- Fix ender chests being always blocked in creative\n- Fix 'help', 'show' and 'get' subcommands requiring op to run. Closes #2",
+    "1.0.0": "The first release."
+  }
 }

@@ -21,12 +21,14 @@ This mod adds almost for free some INFININE (omg) storage to the game.
 
 Butt beware..
 '''
+
 [[dependencies.subpocket]]
 modId = 'forge'
 mandatory = true
 versionRange = '[41,)'
 ordering = 'NONE'
 side = 'BOTH'
+
 [[dependencies.subpocket]]
 modId = 'minecraft'
 mandatory = true
