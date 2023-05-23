@@ -12,6 +12,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.math.Matrix4f;
 import dev.necauqua.mods.subpocket.api.ISubpocket;
 import dev.necauqua.mods.subpocket.api.ISubpocketStack;
 import dev.necauqua.mods.subpocket.config.Config;
@@ -43,7 +44,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 
 import java.io.IOException;
@@ -79,8 +79,8 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
 
     public static final ResourceLocation TEXTURE = ns("textures/gui/subpocket.png");
 
-    private static final ModelResourceLocation TRIDENT_LOCATION = ModelResourceLocation.vanilla("trident", "inventory");
-    private static final ModelResourceLocation SPYGLASS_LOCATION = ModelResourceLocation.vanilla("spyglass", "inventory");
+    private static final ModelResourceLocation TRIDENT_LOCATION = new ModelResourceLocation("minecraft", "trident", "inventory");
+    private static final ModelResourceLocation SPYGLASS_LOCATION = new ModelResourceLocation("minecraft", "spyglass", "inventory");
 
     // white color that you get when nothing was picked
     private static final int NONE = 0xFFFFFF;
@@ -145,7 +145,8 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         smolFont = new Font(mc.font.fonts, false) {
             @Override
             public int drawInBatch(String text, float x, float y, int color, boolean dropShadow, Matrix4f transform, MultiBufferSource bufferSource, boolean seeThrough, int effectColor, int packedLightCoords, boolean rtl) {
-                var adjusted = transform.scale(0.5F, 0.5F, 1, new Matrix4f());
+                var adjusted = transform.copy();
+                adjusted.multiply(Matrix4f.createScaleMatrix(0.5F, 0.5F, 1));
                 return super.drawInBatch(text,
                     x * 2 + font.width(text),
                     y * 2 + font.lineHeight / 2.0F,
@@ -469,7 +470,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
         var originalProjection = RenderSystem.getProjectionMatrix();
         // setup same projection matrix as MC uses for inventory item rendering,
         // but width/height are changed to ours
-        RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0.0F, framebuffer.width, framebuffer.height, 0.0F, 1000.0F, 3000.0F));
+        RenderSystem.setProjectionMatrix(Matrix4f.orthographic(0.0F, framebuffer.width, 0.0F, framebuffer.height, 1000.0F, 3000.0F));
 
         mc.getProfiler().popPush("subpocket.silhouettes");
 
@@ -566,7 +567,7 @@ public final class SubpocketScreen extends AbstractContainerScreen<SubpocketCont
     @SubscribeEvent
     public static void on(RegisterShadersEvent e) throws IOException {
         e.registerShader(
-            new ShaderInstance(e.getResourceProvider(), ns("item_silhouette"), DefaultVertexFormat.BLOCK),
+            new ShaderInstance(e.getResourceManager(), ns("item_silhouette"), DefaultVertexFormat.BLOCK),
             shader -> SilhouetteRenderType.silhouette = shader
         );
     }

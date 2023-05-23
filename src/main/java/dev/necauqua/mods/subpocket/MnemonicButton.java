@@ -3,7 +3,7 @@ package dev.necauqua.mods.subpocket;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.necauqua.mods.subpocket.config.IMnenonic;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.Widget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -13,7 +13,7 @@ import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
 
 import java.util.function.BooleanSupplier;
 
-public final class MnemonicButton<M extends IMnenonic<M>> implements GuiEventListener, Renderable, NarratableEntry {
+public final class MnemonicButton<M extends IMnenonic<M>> implements GuiEventListener, Widget, NarratableEntry {
 
     private final BooleanSupplier enabled;
     private final ConfigValue<M> value;

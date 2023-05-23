@@ -16,13 +16,15 @@ import dev.necauqua.mods.subpocket.impl.SubpocketStackFactoryImpl;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import javax.annotation.Nullable;
 import java.math.BigInteger;
@@ -151,13 +153,16 @@ public final class SubpocketCommand {
                     var player = context.getSource().getPlayerOrException();
                     var storage = SubpocketCapability.get(player);
 
-                    var action = (Consumer<ItemStack>) ref -> {
+                    var tab = NonNullList.<ItemStack>create();
+                    for (var item : ForgeRegistries.ITEMS) {
+                        item.fillItemCategory(CreativeModeTab.TAB_BUILDING_BLOCKS, tab);
+                        item.fillItemCategory(CreativeModeTab.TAB_MATERIALS, tab);
+                        item.fillItemCategory(CreativeModeTab.TAB_MISC, tab);
+                    }
+                    for (var ref : tab) {
                         var number = BigInteger.valueOf(ThreadLocalRandom.current().nextInt(9999) + 1);
                         storage.add(SubpocketStackFactoryImpl.INSTANCE.create(ref, number));
-                    };
-                    CreativeModeTabs.BUILDING_BLOCKS.getDisplayItems().forEach(action);
-                    CreativeModeTabs.INGREDIENTS.getDisplayItems().forEach(action);
-                    CreativeModeTabs.TOOLS_AND_UTILITIES.getDisplayItems().forEach(action);
+                    }
 
                     Network.syncToClient(player);
                     return 1;

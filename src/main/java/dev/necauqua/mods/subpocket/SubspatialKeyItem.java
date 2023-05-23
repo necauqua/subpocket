@@ -26,7 +26,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.event.CreativeModeTabEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
@@ -35,7 +34,6 @@ import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
-import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.registries.RegistryObject;
 
 import javax.annotation.Nullable;
@@ -51,18 +49,8 @@ public final class SubspatialKeyItem extends Item implements MenuProvider {
     public SubspatialKeyItem() {
         super(new Properties()
             .stacksTo(1)
-            .rarity(Rarity.EPIC));
-    }
-
-    @EventBusSubscriber(modid = MODID, bus = Bus.MOD)
-    private static final class CreativeTabHandler {
-
-        @SubscribeEvent
-        public static void on(CreativeModeTabEvent.BuildContents e) {
-            if (e.getTab() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
-                e.accept(INSTANCE);
-            }
-        }
+            .rarity(Rarity.EPIC)
+            .tab(CreativeModeTab.TAB_TOOLS));
     }
 
     @Override
