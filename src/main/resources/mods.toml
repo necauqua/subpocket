@@ -25,13 +25,13 @@ Butt beware..
 [[dependencies.subpocket]]
 modId = 'forge'
 mandatory = true
-versionRange = '[41,)'
+versionRange = '[43,)'
 ordering = 'NONE'
 side = 'BOTH'
 
 [[dependencies.subpocket]]
 modId = 'minecraft'
 mandatory = true
-versionRange = '[1.19,1.20)'
+versionRange = '[1.19.3,1.20)'
 ordering = 'NONE'
 side = 'BOTH'
